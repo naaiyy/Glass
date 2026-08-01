@@ -18,6 +18,8 @@ vp run build
 
 `voidzero-dev/setup-vp@v1` installs and caches the repository-pinned Vite Plus toolchain and dependencies. CI then runs configured formatting/lint checks, workspace typechecks, tests, and builds. The desktop pipeline additionally verifies its Electron outputs and preload artifact.
 
+CI does not launch the Electron GUI on a headless Linux runner. It validates the Electron runtime, builds the desktop pipeline, confirms the preload bundle exists, and checks that the required bridge symbols were emitted. Use the desktop smoke verifier on a graphical macOS development or QA machine when validating the real application window.
+
 Do not replace these commands in documentation or workflows with generic `pnpm build`, `pnpm test`, or `pnpm lint`. pnpm manages the workspace and lockfile; Vite Plus operates the developer and CI workflow.
 
 ## Iteration
@@ -51,4 +53,4 @@ Signing, deployment, app-store publication, and cloud credentials are not part o
 - Vite Plus checks and ignores: `vite.config.ts`
 - Workspace packages and catalog: `pnpm-workspace.yaml`
 - Reproducible dependency graph: `pnpm-lock.yaml`
-- Desktop smoke verifier: `apps/desktop/scripts/smoke-test.mjs`
+- Local desktop smoke verifier: `apps/desktop/scripts/smoke-test.mjs`
