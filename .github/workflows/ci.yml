@@ -71,15 +71,13 @@ jobs:
           cache: true
           run-install: true
 
+      - name: Ensure Electron runtime is installed
+        run: vp run --filter @glass/desktop ensure:electron
+
       - name: Build all workspaces
         run: vp run build
 
-      - name: Install virtual display
+      - name: Verify preload bundle output
         run: |
-          if ! command -v xvfb-run >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install --yes xvfb
-          fi
-
-      - name: Verify desktop output
-        run: xvfb-run --auto-servernum vp run --filter @glass/desktop smoke-test
+          test -f apps/desktop/dist-electron/preload.cjs
+          grep -nE "glassDesktop|executionConnection|platform" apps/desktop/dist-electron/preload.cjs

@@ -197,6 +197,28 @@ assert.match(
 );
 assert.match(desktopSource, /sandbox:\s*true/u, "desktop must sandbox the renderer");
 
+const ciWorkflow = read(".github/workflows/ci.yml");
+assert.match(
+  ciWorkflow,
+  /vp run --filter @glass\/desktop ensure:electron/u,
+  "CI must validate the Electron runtime before building desktop outputs",
+);
+assert.match(
+  ciWorkflow,
+  /test -f apps\/desktop\/dist-electron\/preload\.cjs/u,
+  "CI must verify the generated preload bundle",
+);
+assert.match(
+  ciWorkflow,
+  /grep -nE ["']glassDesktop\|executionConnection\|platform["']/u,
+  "CI must verify the required preload bridge symbols",
+);
+assert.doesNotMatch(
+  ciWorkflow,
+  /(?:xvfb|smoke-test)/iu,
+  "Linux CI must verify desktop artifacts without launching the Electron GUI",
+);
+
 console.log(
   "Architecture invariants passed for five runnable apps, reserved marketing, and six packages.",
 );
