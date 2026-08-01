@@ -36,6 +36,12 @@ const productUnavailable: BoundaryError = {
   retryable: true,
 };
 
+const authRequestFailed: BoundaryError = {
+  code: "INVALID_RESPONSE",
+  message: "Glass Cloud authentication could not process the request.",
+  retryable: false,
+};
+
 const unauthorized: BoundaryError = {
   code: "UNAUTHENTICATED",
   message: "A valid Glass Cloud session is required.",
@@ -48,6 +54,13 @@ const json = (body: unknown, status = 200): Response =>
     headers: { "cache-control": "no-store" },
   });
 
+const reportAuthFailure = (phase: "construction" | "request", cause: unknown): void => {
+  console.error("Glass Cloud authentication boundary failed.", {
+    phase,
+    errorType: cause instanceof Error ? cause.name : "UnknownFailure",
+  });
+};
+
 const isAuthRoute = (pathname: string): boolean =>
   pathname === "/api/auth" || pathname.startsWith("/api/auth/");
 
@@ -56,19 +69,24 @@ const withAuthRuntime = async (
   createRuntime: GlassAuthRuntimeFactory,
   useRuntime: (runtime: GlassAuthRuntime) => Promise<Response>,
 ): Promise<Response> => {
-  let runtime: GlassAuthRuntime | undefined;
+  let runtime: GlassAuthRuntime;
   try {
     runtime = await createRuntime(config);
-    return await useRuntime(runtime);
-  } catch {
+  } catch (cause) {
+    reportAuthFailure("construction", cause);
     return json(productUnavailable, 503);
+  }
+
+  try {
+    return await useRuntime(runtime);
+  } catch (cause) {
+    reportAuthFailure("request", cause);
+    return json(authRequestFailed, 500);
   } finally {
-    if (runtime) {
-      try {
-        await runtime.close();
-      } catch {
-        // The response is already determined; a failed connection close must not replace it.
-      }
+    try {
+      await runtime.close();
+    } catch {
+      // The response is already determined; a failed connection close must not replace it.
     }
   }
 };

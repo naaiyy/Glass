@@ -68,6 +68,60 @@ describe("Glass Cloud API boundary", () => {
     expect(closed).toBe(true);
   });
 
+  it("distinguishes runtime construction failures from auth handler failures", async () => {
+    const originalConsoleError = console.error;
+    const reportedFailures: unknown[][] = [];
+    console.error = (...values: unknown[]) => {
+      reportedFailures.push(values);
+    };
+    try {
+      const unavailable = await handleRequest(
+        new Request("https://glass.invalid/api/auth/session"),
+        configuredBindings,
+        async () => {
+          throw new Error("database unavailable");
+        },
+      );
+
+      expect(unavailable.status).toBe(503);
+      await expect(unavailable.json()).resolves.toMatchObject({
+        code: "PRODUCT_UNAVAILABLE",
+        retryable: true,
+      });
+
+      let closed = false;
+      const failed = await handleRequest(
+        new Request("https://glass.invalid/api/auth/session"),
+        configuredBindings,
+        async () => ({
+          handle: async () => {
+            throw new Error("handler failure");
+          },
+          getSession: async () => null,
+          close: async () => {
+            closed = true;
+          },
+        }),
+      );
+
+      expect(failed.status).toBe(500);
+      expect(closed).toBe(true);
+      await expect(failed.json()).resolves.toMatchObject({
+        code: "INVALID_RESPONSE",
+        retryable: false,
+      });
+      expect(reportedFailures).toEqual([
+        [
+          "Glass Cloud authentication boundary failed.",
+          { phase: "construction", errorType: "Error" },
+        ],
+        ["Glass Cloud authentication boundary failed.", { phase: "request", errorType: "Error" }],
+      ]);
+    } finally {
+      console.error = originalConsoleError;
+    }
+  });
+
   it("requires a durable Better Auth session for the protected proof route", async () => {
     let closed = false;
     const factory: GlassAuthRuntimeFactory = async () => ({

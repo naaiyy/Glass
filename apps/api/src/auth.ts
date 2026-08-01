@@ -20,7 +20,10 @@ export interface GlassAuthRuntime {
 export type GlassAuthRuntimeFactory = (config: GlassAuthConfig) => Promise<GlassAuthRuntime>;
 
 export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config) => {
-  const client = new Client({ connectionString: config.connectionString });
+  const client = new Client({
+    connectionString: config.connectionString,
+    connectionTimeoutMillis: 5_000,
+  });
   try {
     await client.connect();
     const database = drizzle(client, { schema: authSchema });

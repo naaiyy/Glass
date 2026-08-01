@@ -29,7 +29,10 @@ Better Auth's CLI generates `apps/api/src/db/schema.ts`. Stable Drizzle Kit in
 `infra/cloud/migrations/postgres`. Alchemy's PlanetScale provider applies that
 same migration chain to the selected branch using a temporary migration role.
 The persistent runtime role is data-only (`pg_read_all_data` and
-`pg_write_all_data`).
+`pg_write_all_data`). Each environment branch is an exclusive Glass database
+boundary rather than a shared database with unrelated application tables, so
+this role intentionally covers every current and future Glass table in that
+branch while remaining unable to administer the database, roles, or schema.
 
 ## Schema and migration workflow
 
