@@ -1,0 +1,61 @@
+packages:
+  - apps/*
+  - infra/*
+  - packages/*
+  - scripts
+
+allowBuilds:
+  electron: true
+  esbuild: true
+  msgpackr-extract: false
+  sharp: true
+  workerd: false
+
+catalog:
+  "@effect/platform-node": 4.0.0-beta.102
+  "@effect/tsgo": 0.13.2
+  "@effect/vitest": 4.0.0-beta.102
+  "@types/node": 24.12.4
+  "@typescript/native-preview": 7.0.0-dev.20260604.1
+  effect: 4.0.0-beta.102
+  typescript: ~6.0.3
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.2
+  vite-plus: 0.2.2
+
+minimumReleaseAgeExclude:
+  - "@effect/platform-node@4.0.0-beta.102"
+  - "@effect/tsgo@0.13.2"
+  - "@effect/vitest@4.0.0-beta.102"
+  - "effect@4.0.0-beta.102"
+  - "@cloudflare/workers-types@5.20260801.1"
+  - wrangler@4.118.0
+
+overrides:
+  "@effect/platform-node": "catalog:"
+  "@effect/tsgo": "catalog:"
+  "@effect/vitest": "catalog:"
+  "@effect/vitest>vitest": "-"
+  effect: "catalog:"
+  vite: "catalog:"
+
+packageExtensions:
+  "@effect/vitest@*":
+    dependencies:
+      vite-plus: "catalog:"
+    peerDependenciesMeta:
+      vitest:
+        optional: true
+  "vite-plus@*":
+    dependencies:
+      vite: "catalog:"
+
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"
+
+supportedArchitectures:
+  cpu: [current, x64]
+  libc: [current, glibc]
+  os: [current, linux]

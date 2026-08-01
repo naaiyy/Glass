@@ -1,0 +1,19 @@
+{
+  "name": "@glass/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./assert-never": {
+      "types": "./src/assert-never.ts",
+      "import": "./src/assert-never.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.build.json",
+    "test": "vp test run --passWithNoTests",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

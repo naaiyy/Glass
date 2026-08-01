@@ -1,0 +1,23 @@
+{
+  "name": "@glass/client-runtime",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./connections": {
+      "types": "./src/connections.ts",
+      "import": "./src/connections.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.build.json",
+    "test": "vp test run",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@glass/contracts": "workspace:*",
+    "@glass/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

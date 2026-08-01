@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Glass",
+    "slug": "glass",
+    "version": "0.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "experiments": {
+      "autolinkingModuleResolution": true
+    },
+    "ios": {
+      "bundleIdentifier": "dev.glass.mobile",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "dev.glass.mobile"
+    }
+  }
+}

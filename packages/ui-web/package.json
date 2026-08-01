@@ -1,0 +1,24 @@
+{
+  "name": "@glass/ui-web",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./foundation-shell": {
+      "types": "./src/foundation-shell.tsx",
+      "import": "./src/foundation-shell.tsx"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.build.json",
+    "test": "vp test run --passWithNoTests",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.14",
+    "react": "19.2.6",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["DOM", "ESNext"],
+    "module": "Preserve",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["src/**/*.tsx"]
+}

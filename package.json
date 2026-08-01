@@ -1,0 +1,33 @@
+{
+  "name": "@glass/monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare": "effect-tsgo patch && vp config --no-agent",
+    "dev": "vp run --filter @glass/web dev",
+    "dev:web": "vp run --filter @glass/web dev",
+    "dev:desktop": "vp run --filter @glass/desktop dev",
+    "dev:mobile": "vp run --filter @glass/mobile dev",
+    "dev:api": "vp run --filter @glass/api dev",
+    "dev:execution-node": "vp run --filter @glass/execution-node dev",
+    "build": "vp run --filter './packages/*' build && vp run --filter @glass/web build && vp run --filter @glass/desktop --filter @glass/mobile --filter @glass/api --filter @glass/execution-node build",
+    "build:desktop": "vp run --filter @glass/web build && vp run --filter @glass/desktop build",
+    "typecheck": "vp run -r --concurrency-limit 2 typecheck",
+    "test": "vp run -r test",
+    "test:architecture": "node scripts/check-architecture.mjs",
+    "test:desktop-smoke": "vp run --filter @glass/desktop smoke-test",
+    "lint": "vp lint --report-unused-disable-directives",
+    "fmt": "vp fmt",
+    "fmt:check": "vp fmt --check"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "engines": {
+    "node": "^24.13.1"
+  },
+  "packageManager": "pnpm@11.10.0"
+}

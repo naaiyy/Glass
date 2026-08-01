@@ -1,0 +1,23 @@
+{
+  "name": "@glass/contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./architecture": {
+      "types": "./src/architecture.ts",
+      "import": "./src/architecture.ts"
+    },
+    "./errors": {
+      "types": "./src/errors.ts",
+      "import": "./src/errors.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsgo -p tsconfig.build.json",
+    "test": "vp test run --passWithNoTests",
+    "typecheck": "tsgo --noEmit"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@glass/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vp build",
+    "dev": "vp dev",
+    "preview": "vp preview",
+    "test": "vp test run --passWithNoTests",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@glass/client-runtime": "workspace:*",
+    "@glass/contracts": "workspace:*",
+    "@glass/domain": "workspace:*",
+    "@glass/ui-web": "workspace:*",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.14",
+    "@types/react-dom": "~19.2.3",
+    "@vitejs/plugin-react": "6.0.5",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+.vite-plus/
+dist/
+dist-electron/
+.expo/
+.electron-runtime/
+.wrangler/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
