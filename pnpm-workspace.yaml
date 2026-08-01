@@ -29,6 +29,7 @@ minimumReleaseAgeExclude:
   - "effect@4.0.0-beta.102"
   - "@cloudflare/workers-types@5.20260801.1"
   - wrangler@4.118.0
+  - "@types/pg@8.20.3"
 
 overrides:
   "@effect/platform-node": "catalog:"
