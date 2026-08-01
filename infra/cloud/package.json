@@ -3,12 +3,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"console.log('Cloud infrastructure is reserved for Milestone 3; no deployment is configured.')\"",
-    "test": "vp test run --passWithNoTests",
+    "build": "tsgo --noEmit",
+    "deploy": "alchemy deploy alchemy.run.ts",
+    "deploy:dev": "alchemy deploy alchemy.run.ts --stage dev",
+    "deploy:dev:ci": "alchemy deploy alchemy.run.ts --stage dev --yes",
+    "deploy:prod": "alchemy deploy alchemy.run.ts --stage prod",
+    "deploy:prod:ci": "alchemy deploy alchemy.run.ts --stage prod --yes",
+    "deploy:staging": "alchemy deploy alchemy.run.ts --stage staging",
+    "deploy:staging:ci": "alchemy deploy alchemy.run.ts --stage staging --yes",
+    "plan": "alchemy plan alchemy.run.ts",
+    "plan:dev": "alchemy plan alchemy.run.ts --stage dev",
+    "plan:prod": "alchemy plan alchemy.run.ts --stage prod",
+    "plan:staging": "alchemy plan alchemy.run.ts --stage staging",
+    "test": "vp test run",
     "typecheck": "tsgo --noEmit"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@types/node": "catalog:",
+    "alchemy": "2.0.0-beta.65",
+    "effect": "catalog:",
     "vite-plus": "catalog:"
   }
 }

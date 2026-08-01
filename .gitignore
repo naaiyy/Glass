@@ -5,6 +5,7 @@ dist-electron/
 .expo/
 .electron-runtime/
 .wrangler/
+.alchemy/
 *.tsbuildinfo
 .DS_Store
 .env

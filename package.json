@@ -10,7 +10,7 @@
     "dev:mobile": "vp run --filter @glass/mobile dev",
     "dev:api": "vp run --filter @glass/api dev",
     "dev:execution-node": "vp run --filter @glass/execution-node dev",
-    "build": "vp run --filter './packages/*' build && vp run --filter @glass/web build && vp run --filter @glass/desktop --filter @glass/mobile --filter @glass/api --filter @glass/execution-node build",
+    "build": "vp run --filter './packages/*' --filter @glass/cloud-infrastructure build && vp run --filter @glass/web build && vp run --filter @glass/desktop --filter @glass/mobile --filter @glass/api --filter @glass/execution-node build",
     "build:desktop": "vp run --filter @glass/web build && vp run --filter @glass/desktop build",
     "typecheck": "vp run -r --concurrency-limit 2 typecheck",
     "test": "vp run -r test",

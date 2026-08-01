@@ -3,16 +3,26 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "auth:schema": "auth generate --config src/auth.cli.ts --output src/db/schema.ts --yes",
     "build": "vp build",
+    "db:migrations": "drizzle-kit generate --dialect postgresql --schema src/db/schema.ts --out ../../infra/cloud/migrations/postgres",
     "dev": "wrangler dev",
     "test": "vp test run",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@glass/contracts": "workspace:*"
+    "@better-auth/drizzle-adapter": "1.6.25",
+    "@glass/contracts": "workspace:*",
+    "better-auth": "1.6.25",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.22.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260801.1",
+    "@types/pg": "8.20.3",
+    "auth": "1.6.25",
+    "drizzle-kit": "0.31.8",
+    "esbuild": "0.28.1",
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "wrangler": "4.118.0"

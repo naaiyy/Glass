@@ -1,0 +1,39 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vite-plus/test";
+
+const stackSource = readFileSync(new URL("../alchemy.run.ts", import.meta.url), "utf8");
+
+describe("Glass Cloud Alchemy resource graph", () => {
+  it("lets Alchemy generate provider resource names", () => {
+    expect(stackSource).not.toMatch(/\n\s+name:/u);
+    expect(stackSource).toContain('PostgresDatabase("Database"');
+    expect(stackSource).toContain('PostgresBranch("Branch"');
+    expect(stackSource).toContain('PostgresRole("RuntimeRole"');
+    expect(stackSource).toContain('Hyperdrive.Connection("Hyperdrive"');
+    expect(stackSource).toContain('Cloudflare.Worker("Api"');
+  });
+
+  it("makes prod the database owner and references it from other stages", () => {
+    expect(stackSource).toContain('PostgresDatabase.ref("Database"');
+    expect(stackSource).toContain("stage: glassCloudProductionStage");
+    expect(stackSource).toMatch(/PostgresDatabase[\s\S]*?\.pipe\(retain\(\)\)/u);
+  });
+
+  it("applies one committed migration chain to every database branch", () => {
+    expect(stackSource.match(/migrationsDir: glassCloudMigrationsDirectory/gu)).toHaveLength(2);
+    expect(stackSource).not.toContain("alchemy/Drizzle");
+  });
+
+  it("uses product-standard binding and secret names", () => {
+    expect(stackSource).toContain('Config.redacted("GITHUB_CLIENT_ID")');
+    expect(stackSource).toContain('Config.redacted("GITHUB_CLIENT_SECRET")');
+    expect(stackSource).toContain('Config.redacted("BETTER_AUTH_SECRET")');
+    expect(stackSource).not.toContain("Alchemy.makeRandom");
+    expect(stackSource).toContain("BETTER_AUTH_SECRET: betterAuthSecret");
+    expect(stackSource).toContain("HYPERDRIVE: hyperdrive");
+    expect(stackSource).toContain("originConnectionLimit: 20");
+    expect(stackSource).toContain('flags: ["nodejs_compat"]');
+    expect(stackSource).not.toContain("GLASS_STAGE");
+    expect(stackSource).not.toContain("BETTER_AUTH_URL");
+  });
+});
