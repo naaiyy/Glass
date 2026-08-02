@@ -53,6 +53,9 @@ jobs:
           vp run --filter @glass/api db:migrations
           test -z "$(git status --porcelain)"
 
+      - name: Build the shared web renderer
+        run: vp run --filter @glass/web build
+
       - name: Plan
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

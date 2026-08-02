@@ -4,9 +4,18 @@
 
 Glass has two independent connections: an always-on product connection to Glass Cloud and an optional execution connection to a capable computer or cloud environment.
 
-The product connection owns identity, organizations, projects, artifacts, conversations, shared documents, collaboration, synchronization, and durable product state. The execution connection owns access to filesystems, repositories, terminals, processes, local agent runtimes, Git, browser automation, and workspace checkpoints.
+The product connection owns identity, organizations, projects, artifacts, conversations, note storage, collaboration, synchronization, and durable product state. The execution connection owns access to filesystems, repositories, terminals, processes, local agent runtimes, Git, browser automation, and workspace checkpoints.
 
-Execution loss never makes the product unavailable. The clients continue to read and write cloud-owned product state, show the environment as unavailable, preserve eligible device-owned drafts in the outbox, and disable only actions that require machine capabilities.
+Notes use OpenEditor on every supported surface. Glass owns their product identity and the
+authenticated durable adapter around the native OpenEditor payload. OpenEditor owns the document
+model, editing behavior, and future editor collaboration. Glass product synchronization does not
+duplicate editor synchronization.
+
+Execution loss never makes the product unavailable. The clients continue to read and write
+cloud-owned product state, show the environment as unavailable, preserve queued Glass product
+mutations in the device outbox, and disable only actions that require machine capabilities.
+OpenEditor content does not enter that outbox; the editor reports an unsuccessful save and keeps
+the current editing session available for explicit retry.
 
 ## Runtime boundaries
 
@@ -18,7 +27,22 @@ Execution loss never makes the product unavailable. The clients continue to read
 
 ## Implemented boundary
 
-The foundation supplies runnable application boundaries, package boundaries, shared contracts, verification, and documentation. It does not supply durable product storage, login, collaboration, environment pairing, terminal/filesystem operations, managed tunnels, or production deployment.
+Milestones 0 through 2 supply runnable application and package boundaries, real Glass Cloud
+authentication, deployed cloud infrastructure, and the durable database connection. Milestone 3
+adds the repository implementation for organization-scoped product state, transactional change
+events, synchronization, and device-owned outbox behavior. Its external deployment is not implied
+until migrations, routes, authentication, and client flows pass the operational verification.
+
+The web client initiates GitHub authentication directly against Better Auth on the same deployed
+Worker origin. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
+storage. Packaged desktop uses Better Auth's Electron PKCE handoff through the system browser;
+session material remains in the main process, and an allowlisted IPC adapter performs authenticated
+product requests without exposing cookies to the renderer. No surface substitutes a local identity
+or pre-seeded credential.
+
+Environment pairing, terminal/filesystem operations, managed tunnels, production-ready
+multi-user chat and product experiences, and releases remain later milestones. Editor
+collaboration is not implemented by Glass at a later milestone; OpenEditor owns that capability.
 
 ## Source map
 

@@ -21,7 +21,9 @@ The execution connection targets an authorized execution environment, directly o
 - UI state derives product and execution availability separately. A single combined `connected` flag is invalid.
 - Contracts crossing HTTP, WebSocket, desktop IPC, or a future tunnel are validated at ingress.
 
-The foundation provides shared runtime and typed descriptors, not production synchronization or socket transport.
+Milestone 3 adds typed snapshot/pull synchronization and a device-owned durable outbox to the shared
+runtime. It does not add Glass Connect or make realtime socket transport a correctness dependency.
+See [Product synchronization and outbox](synchronization.md).
 
 ## Source map
 

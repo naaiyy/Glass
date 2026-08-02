@@ -4,7 +4,12 @@ This page is for Glass release owners.
 
 ## Current status
 
-The foundation builds and verifies applications but does not publish a production release. Desktop signing/notarization, mobile store credentials, cloud deployment, DNS, database migrations, update channels, and rollback automation are not configured unless their real credentials and workflows exist.
+The repository builds and verifies applications but does not publish a complete production product
+release. Milestone 2 cloud infrastructure, database migrations, authentication, and Worker
+deployment are operational under the separate cloud workflow. Milestone 3 deployment is not
+claimed until its migrations, routes, and client flows pass live verification. Desktop
+signing/notarization, mobile store credentials, product web publication, update channels, and
+release rollback automation remain unconfigured unless their real credentials and workflows exist.
 
 ## Release contract
 
@@ -40,4 +45,4 @@ Never bypass a missing credential by disabling verification, embedding a test id
 - Application manifests: `apps/*/package.json`
 - Root toolchain and scripts: `package.json`
 - Dependency lock: `pnpm-lock.yaml`
-- Future cloud declarations: `infra/cloud/`
+- Cloud infrastructure declarations: `infra/cloud/`

@@ -1,7 +1,9 @@
 # PostgreSQL migrations
 
-This directory is the committed output of the canonical Drizzle schema at
-`apps/api/src/db/schema.ts`. Generate migration directories with the
+This directory is the committed output of the composed Drizzle schema at
+`apps/api/src/db/schema.ts`. Better Auth generates only
+`apps/api/src/db/auth-schema.generated.ts`; it must never overwrite the composed schema. Generate
+migration directories with the
 repository-pinned `@glass/api` `db:migrations` script, review the generated SQL,
 snapshot, and journal, and commit them before an Alchemy deployment applies them.
 

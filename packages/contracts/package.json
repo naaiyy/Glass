@@ -10,12 +10,43 @@
     "./errors": {
       "types": "./src/errors.ts",
       "import": "./src/errors.ts"
+    },
+    "./events": {
+      "types": "./src/events.ts",
+      "import": "./src/events.ts"
+    },
+    "./ids": {
+      "types": "./src/ids.ts",
+      "import": "./src/ids.ts"
+    },
+    "./notes": {
+      "types": "./src/notes.ts",
+      "import": "./src/notes.ts"
+    },
+    "./organizations": {
+      "types": "./src/organizations.ts",
+      "import": "./src/organizations.ts"
+    },
+    "./product": {
+      "types": "./src/product.ts",
+      "import": "./src/product.ts"
+    },
+    "./sync": {
+      "types": "./src/sync.ts",
+      "import": "./src/sync.ts"
+    },
+    "./validation": {
+      "types": "./src/validation.ts",
+      "import": "./src/validation.ts"
     }
   },
   "scripts": {
     "build": "tsgo -p tsconfig.build.json",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@openeditor/core": "catalog:"
   },
   "devDependencies": {
     "vite-plus": "catalog:"

@@ -1,6 +1,13 @@
 # Glass documentation
 
-Glass documentation is organized by audience. The current repository implements the architectural constitution and runnable monorepo foundation. Product persistence, authentication, managed cloud infrastructure, execution orchestration, Glass Connect, collaboration, and releases remain future milestones unless a page explicitly says otherwise.
+Glass documentation is organized by audience. Milestones 0 through 2 establish the architectural
+constitution, runnable monorepo, and deployed Glass Cloud foundation. This repository contains the
+Milestone 3 durable product-core and synchronization implementation. External Milestone 3
+deployment and live client verification are not claimed until their operational checks complete.
+Environment pairing, Glass Connect, machine execution, production-ready multi-user product
+experiences, and releases remain later milestones unless a page explicitly says otherwise. Editor
+collaboration has no Glass implementation milestone; it remains owned by OpenEditor and arrives in
+Glass only through a coordinated OpenEditor dependency update.
 
 ## Internals
 
@@ -8,6 +15,9 @@ For maintainers and contributors:
 
 - [System overview](internals/overview.md)
 - [Product cloud](internals/product-cloud.md)
+- [Durable product core](internals/durable-product-core.md)
+- [Product synchronization and outbox](internals/synchronization.md)
+- [OpenEditor integration](internals/openeditor.md)
 - [Execution environments](internals/execution-environments.md)
 - [Connection runtime](internals/connection-runtime.md)
 - [Orchestration](internals/orchestration.md)
@@ -24,7 +34,9 @@ For infrastructure, deployment, and release owners:
 - [Cloud infrastructure](operations/cloud-infrastructure.md)
 - [Releases](operations/releases.md)
 
-These are contract and readiness documents. Cloud provisioning, deployment credentials, signing, and store publication are not operational in the foundation.
+Milestone 2 cloud provisioning is operational as described in the cloud runbook. Milestone 3
+deployment, signing, store publication, and later release workflows are not implied by repository
+implementation.
 
 ## User guides
 

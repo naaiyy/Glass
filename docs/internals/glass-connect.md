@@ -6,7 +6,7 @@ Glass Connect is the future managed transport between Glass Cloud and an authent
 
 ## Contract
 
-Glass Connect provides discovery and transport, not product authority. Glass Cloud remains authoritative for users, projects, conversations, documents, environment registry, pairing, and durable execution metadata/results. The execution environment remains authoritative for workspaces, processes, provider credentials, and checkpoints.
+Glass Connect provides discovery and transport, not product authority. Glass Cloud remains authoritative for users, projects, conversations, note storage, environment registry, pairing, and durable execution metadata/results. The execution environment remains authoritative for workspaces, processes, provider credentials, and checkpoints.
 
 The design requires real user authentication, scoped environment credentials, DPoP-style proof of possession, short-lived WebSocket tickets, and managed tunnels. Authorization is evaluated independently of transport. A tunnel cannot widen project, workspace, or capability scope.
 
@@ -18,9 +18,10 @@ The design requires real user authentication, scoped environment credentials, DP
 - Reconnection re-establishes authentication and reconciles durable operation state; it does not reuse an expired ticket.
 - Direct or local transports, if later supported, implement the same contracts and authorization requirements.
 
-## Foundation status
+## Current status
 
-Glass Connect, pairing, credential exchange, WebSocket tickets, and tunnels are not implemented in the foundation. No placeholder endpoint or fake token flow stands in for them.
+Glass Connect, pairing, credential exchange, WebSocket tickets, and tunnels are not implemented
+yet. No placeholder endpoint or fake token flow stands in for them.
 
 ## Source map
 

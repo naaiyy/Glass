@@ -3,14 +3,12 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   build: {
     emptyOutDir: true,
-    lib: {
-      entry: "src/main.ts",
-      formats: ["cjs"],
-    },
     outDir: "dist-electron",
     rollupOptions: {
       external: ["electron", "node:path"],
-      output: { entryFileNames: "main.cjs" },
+      output: { entryFileNames: "main.cjs", format: "cjs" },
     },
+    ssr: "src/main.ts",
   },
+  ssr: { noExternal: ["@better-auth/electron", "better-auth", "conf"] },
 });

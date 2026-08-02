@@ -10,10 +10,15 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@better-auth/electron": "catalog:",
     "@glass/client-runtime": "workspace:*",
     "@glass/contracts": "workspace:*",
     "@glass/domain": "workspace:*",
     "@glass/ui-web": "workspace:*",
+    "@openeditor/core": "catalog:",
+    "@openeditor/react": "catalog:",
+    "@openeditor/ui": "catalog:",
+    "better-auth": "catalog:",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },

@@ -1,8 +1,16 @@
 # Glass
 
-Glass is an always-available cloud product with optional connections to execution environments. This clean-slate repository currently implements the architectural constitution and runnable monorepo foundation: five applications, six boundary-focused packages, Vite Plus workflow policy, portable CI, and documentation.
+Glass is an always-available cloud product with optional connections to execution environments.
+This clean-slate repository implements the architectural constitution, runnable monorepo, deployed
+Glass Cloud foundation, and the repository implementation of the Milestone 3 durable product core
+across five applications and six boundary-focused packages.
 
-Durable product features, authentication, cloud infrastructure, machine execution capabilities, Glass Connect, collaboration, and releases are intentionally outside this foundation milestone.
+Milestone 3 adds organization-scoped durable product records, typed synchronization, and a
+device-owned offline outbox without making execution a product dependency. Its external deployment
+and live client verification are separate operational gates. Environment pairing, Glass Connect,
+machine execution capabilities, production-ready multi-user product experiences, and releases
+remain later milestones. Editor collaboration is not one of those Glass milestones: OpenEditor
+owns it, and Glass adopts it through a coordinated OpenEditor dependency update.
 
 ## Workspaces
 

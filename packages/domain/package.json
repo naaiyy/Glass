@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./authorization": {
+      "types": "./src/authorization.ts",
+      "import": "./src/authorization.ts"
+    },
     "./ownership": {
       "types": "./src/ownership.ts",
       "import": "./src/ownership.ts"

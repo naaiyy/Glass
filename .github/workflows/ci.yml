@@ -38,10 +38,31 @@ jobs:
       - name: Check architecture invariants
         run: node scripts/check-architecture.mjs
 
+      - name: Check committed database migrations
+        run: |
+          vp run --filter @glass/api db:migrations
+          git diff --exit-code -- infra/cloud/migrations/postgres
+
   test:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: glass_m3_test
+          POSTGRES_PASSWORD: glass_test
+          POSTGRES_USER: glass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U glass -d glass_m3_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://glass:glass_test@127.0.0.1:5432/glass_m3_test
     steps:
       - name: Checkout
         uses: actions/checkout@v6

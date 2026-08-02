@@ -1,9 +1,111 @@
-import { app, BrowserWindow } from "electron";
+import { electronClient } from "@better-auth/electron/client";
+import { storage } from "@better-auth/electron/storage";
+import type { DesktopProductRequest } from "@glass/contracts/architecture";
+import type { BetterAuthClientOptions } from "better-auth";
+import { createAuthClient } from "better-auth/client";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
 const desktopDirectory = __dirname;
 const sharedRendererProject = "../../web/dist/index.html";
 const isSmokeTest = process.argv.includes("--glass-smoke-test");
+const defaultProductCloudOrigin =
+  "https://glasscloud-api-prod-lcuxsmngpdigrgum.naaiyyyy.workers.dev";
+
+const resolveProductCloudOrigin = (input: string | undefined): string => {
+  const value = input?.trim() || defaultProductCloudOrigin;
+  const url = new URL(value);
+  const localDevelopment =
+    url.protocol === "http:" && ["127.0.0.1", "localhost"].includes(url.hostname);
+  if (
+    (url.protocol !== "https:" && !localDevelopment) ||
+    url.username !== "" ||
+    url.password !== "" ||
+    (url.pathname !== "" && url.pathname !== "/") ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new Error("GLASS_CLOUD_ORIGIN must be an HTTPS origin or a local development origin.");
+  }
+  return url.origin;
+};
+
+const productCloudOrigin = resolveProductCloudOrigin(process.env.GLASS_CLOUD_ORIGIN);
+process.env.GLASS_CLOUD_ORIGIN = productCloudOrigin;
+
+const electronAuthPlugin = electronClient({
+  clientID: "glass-desktop",
+  protocol: { scheme: "dev.glass.desktop" },
+  signInURL: `${productCloudOrigin}/`,
+  storage: storage(),
+});
+
+type DesktopAuthClient = Readonly<{
+  getCookie: () => string;
+  setupMain: (input: Readonly<{ getWindow: () => BrowserWindow | null }>) => void;
+}>;
+
+// The integration's runtime and Better Auth versions are pinned together. Their published
+// RequestCache declarations differ under Electron's DOM library, so the cast is isolated here.
+const authClient = createAuthClient({
+  baseURL: productCloudOrigin,
+  plugins: [electronAuthPlugin] as unknown as BetterAuthClientOptions["plugins"],
+}) as unknown as DesktopAuthClient;
+
+let primaryWindow: BrowserWindow | null = null;
+
+authClient.setupMain({ getWindow: () => primaryWindow });
+
+const maximumDesktopProductBodyBytes = 6 * 1024 * 1024;
+const allowedProductRequest = (input: unknown): input is DesktopProductRequest => {
+  if (typeof input !== "object" || input === null) return false;
+  const value = input as Record<string, unknown>;
+  if (
+    typeof value.path !== "string" ||
+    !value.path.startsWith("/v1/") ||
+    value.path.startsWith("//") ||
+    !["GET", "POST", "PUT"].includes(String(value.method)) ||
+    (value.body !== null && typeof value.body !== "string")
+  ) {
+    return false;
+  }
+  const method = value.method;
+  const pathname = new URL(value.path, productCloudOrigin).pathname;
+  const expectedMethod =
+    pathname === "/v1/sync/push"
+      ? "POST"
+      : pathname === "/v1/notes/content" && method === "PUT"
+        ? "PUT"
+        : "GET";
+  return (
+    method === expectedMethod &&
+    (value.body === null ||
+      new TextEncoder().encode(value.body).byteLength <= maximumDesktopProductBodyBytes)
+  );
+};
+
+ipcMain.handle("glass:product-request", async (event, input: unknown) => {
+  const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+  if (sourceWindow === null || !BrowserWindow.getAllWindows().includes(sourceWindow)) {
+    throw new Error("The product request did not come from a Glass renderer.");
+  }
+  if (!allowedProductRequest(input))
+    throw new Error("The product request is outside the desktop allowlist.");
+  const response = await fetch(new URL(input.path, productCloudOrigin), {
+    body: input.body,
+    headers: {
+      accept: "application/json",
+      cookie: authClient.getCookie(),
+      ...(input.body === null ? {} : { "content-type": "application/json" }),
+    },
+    method: input.method,
+  });
+  return {
+    body: await response.text(),
+    contentType: response.headers.get("content-type") ?? "application/json",
+    status: response.status,
+  };
+});
 
 const createWindow = async (): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
@@ -20,6 +122,7 @@ const createWindow = async (): Promise<BrowserWindow> => {
     },
     width: 1280,
   });
+  primaryWindow = window;
 
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => event.preventDefault());
