@@ -2,8 +2,9 @@
 
 Glass documentation is organized by audience. Milestones 0 through 2 establish the architectural
 constitution, runnable monorepo, and deployed Glass Cloud foundation. This repository contains the
-Milestone 3 durable product-core and synchronization implementation. External Milestone 3
-deployment and live client verification are not claimed until their operational checks complete.
+deployed Milestone 3 durable product-core and synchronization implementation. Development,
+staging, and production serve the shared web renderer and product API from one Worker origin, and
+the production Better Auth GitHub lifecycle has passed live verification.
 Environment pairing, Glass Connect, machine execution, production-ready multi-user product
 experiences, and releases remain later milestones unless a page explicitly says otherwise. Editor
 collaboration has no Glass implementation milestone; it remains owned by OpenEditor and arrives in
@@ -34,9 +35,9 @@ For infrastructure, deployment, and release owners:
 - [Cloud infrastructure](operations/cloud-infrastructure.md)
 - [Releases](operations/releases.md)
 
-Milestone 2 cloud provisioning is operational as described in the cloud runbook. Milestone 3
-deployment, signing, store publication, and later release workflows are not implied by repository
-implementation.
+Milestone 2 cloud provisioning and Milestone 3 web/API deployment are operational as described in
+the cloud runbook. Desktop signing, store publication, and later release workflows are not implied
+by that deployment.
 
 ## User guides
 
