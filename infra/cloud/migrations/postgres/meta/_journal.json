@@ -8,6 +8,13 @@
       "when": 1785615588262,
       "tag": "0000_striped_stick",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785640744141,
+      "tag": "0001_short_korvac",
+      "breakpoints": true
     }
   ]
 }

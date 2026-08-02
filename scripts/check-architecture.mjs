@@ -62,9 +62,33 @@ function dependencyNames(manifest) {
   );
 }
 
+function dependencyVersion(manifest, dependency) {
+  for (const group of [
+    manifest.dependencies,
+    manifest.devDependencies,
+    manifest.optionalDependencies,
+    manifest.peerDependencies,
+  ]) {
+    if (group?.[dependency] !== undefined) return group[dependency];
+  }
+  return undefined;
+}
+
 const workspaceConfig = read("pnpm-workspace.yaml");
 assert.match(workspaceConfig, /(?:^|\n)\s*-\s*["']?apps\/\*["']?\s*(?:\n|$)/u);
 assert.match(workspaceConfig, /(?:^|\n)\s*-\s*["']?packages\/\*["']?\s*(?:\n|$)/u);
+for (const packageName of ["core", "native", "react", "ui"]) {
+  assert.match(
+    workspaceConfig,
+    new RegExp(`["']?@openeditor/${packageName}["']?: 0\\.0\\.34(?:\\n|$)`, "u"),
+    `@openeditor/${packageName} must stay on the coordinated public 0.0.34 release`,
+  );
+}
+assert.doesNotMatch(
+  workspaceConfig,
+  /@openeditor\/[^:\n]+:\s*(?:file:|link:|workspace:)/u,
+  "OpenEditor dependencies must not rely on a developer-machine checkout",
+);
 
 for (const [kind, expectedNames] of Object.entries(expectedWorkspaces)) {
   const directory = join(root, kind);
@@ -76,7 +100,11 @@ for (const [kind, expectedNames] of Object.entries(expectedWorkspaces)) {
     )
     .map((entry) => entry.name)
     .sort();
-  assert.deepEqual(actualNames, expectedNames, `${kind}/ must contain the six locked workspaces`);
+  assert.deepEqual(
+    actualNames,
+    expectedNames,
+    `${kind}/ must contain the ${expectedNames.length} locked workspaces`,
+  );
 
   for (const name of expectedNames) {
     const workspacePath = `${kind}/${name}`;
@@ -109,6 +137,16 @@ assert.deepEqual(
 
 const apiManifest = readJson("apps/api/package.json");
 const apiDependencies = dependencyNames(apiManifest);
+assert.match(
+  apiManifest.scripts.build,
+  /wrangler\s+deploy\s+--dry-run/u,
+  "apps/api build must exercise Cloudflare's real Worker bundler",
+);
+assert.match(
+  apiManifest.scripts.build,
+  /smoke-built-worker\.mjs/u,
+  "apps/api build must smoke-check the generated Worker module",
+);
 for (const forbiddenDependency of ["electron", "node-pty"]) {
   assert.ok(
     !apiDependencies.has(forbiddenDependency),
@@ -119,6 +157,11 @@ assert.ok(
   [...apiDependencies].every((dependency) => !dependency.startsWith("@glass/execution-")),
   "apps/api must not depend on execution-only Glass workspaces",
 );
+assert.ok(
+  apiDependencies.has("@openeditor/core"),
+  "apps/api must validate persisted note payloads with the public OpenEditor contract",
+);
+assert.equal(dependencyVersion(apiManifest, "@openeditor/core"), "catalog:");
 
 const apiSource = sourceText("apps/api/src");
 for (const forbiddenImport of [
@@ -138,10 +181,135 @@ for (const navigationDependency of ["@react-navigation/native", "@react-navigati
     `mobile must use React Navigation (${navigationDependency} is missing)`,
   );
 }
+for (const editorDependency of ["@openeditor/core", "@openeditor/native", "react-native-webview"]) {
+  assert.ok(
+    mobileDependencies.has(editorDependency),
+    `mobile must use the supported OpenEditor native surface (${editorDependency} is missing)`,
+  );
+}
+for (const editorDependency of ["@openeditor/core", "@openeditor/native"]) {
+  assert.equal(
+    dependencyVersion(mobileManifest, editorDependency),
+    "catalog:",
+    `mobile must resolve ${editorDependency} through the locked workspace catalog`,
+  );
+}
 assert.doesNotMatch(
   sourceText("apps/mobile"),
   /(?:from|require\(|import\s*\()["']expo-router(?:\/[^"']*)?["']/u,
   "mobile must use React Navigation, not Expo Router",
+);
+
+const contractsManifest = readJson("packages/contracts/package.json");
+assert.ok(
+  dependencyNames(contractsManifest).has("@openeditor/core"),
+  "wire contracts must consume the OpenEditor document type instead of recreating it",
+);
+assert.equal(dependencyVersion(contractsManifest, "@openeditor/core"), "catalog:");
+
+const webManifest = readJson("apps/web/package.json");
+const webDependencies = dependencyNames(webManifest);
+for (const editorDependency of ["@openeditor/core", "@openeditor/react", "@openeditor/ui"]) {
+  assert.ok(
+    webDependencies.has(editorDependency),
+    `web must use the supported OpenEditor surface (${editorDependency} is missing)`,
+  );
+}
+for (const editorDependency of ["@openeditor/core", "@openeditor/react", "@openeditor/ui"]) {
+  assert.equal(
+    dependencyVersion(webManifest, editorDependency),
+    "catalog:",
+    `web must resolve ${editorDependency} through the locked workspace catalog`,
+  );
+}
+
+const productStorageDefinitions = [
+  read("apps/api/src/db/schema.ts"),
+  ...filesBelow("infra/cloud/migrations/postgres")
+    .filter((file) => file.endsWith(".sql"))
+    .map(read),
+].join("\n");
+for (const forbiddenTable of [
+  "documents",
+  "document_revisions",
+  "document_versions",
+  "document_updates",
+  "document_changes",
+  "document_blocks",
+  "document_operations",
+  "document_presence",
+  "document_cursors",
+  "note_revisions",
+  "note_versions",
+  "note_updates",
+  "note_changes",
+  "note_blocks",
+  "note_operations",
+  "note_presence",
+  "note_cursors",
+  "editor_documents",
+  "editor_revisions",
+  "editor_versions",
+  "editor_updates",
+  "editor_changes",
+  "editor_blocks",
+  "editor_operations",
+  "editor_presence",
+  "editor_cursors",
+  "content_revisions",
+  "content_versions",
+  "content_updates",
+  "content_changes",
+  "content_blocks",
+]) {
+  assert.doesNotMatch(
+    productStorageDefinitions,
+    new RegExp(
+      `(?:pgTable\\(\\s*["']|CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["']?)${forbiddenTable}(?:["']|\\b)`,
+      "iu",
+    ),
+    `Glass must not introduce a bespoke ${forbiddenTable} editor table`,
+  );
+}
+
+assert.match(
+  read("apps/api/src/db/schema.ts"),
+  /pgTable\(\s*["']note_contents["']/u,
+  "Glass must persist the current native OpenEditor payload through the dedicated note adapter",
+);
+assert.match(
+  read("packages/contracts/src/notes.ts"),
+  /parseOpenEditorDocument/u,
+  "the note adapter must validate payloads through OpenEditor's public parser",
+);
+
+for (const forbiddenOperation of [
+  "document.create",
+  "document.update",
+  "document.delete",
+  "document.patch",
+  "document.merge",
+  "document.sync",
+  "content.create",
+  "content.update",
+  "content.delete",
+  "content.patch",
+  "content.merge",
+  "content.sync",
+  "editor.change",
+  "editor.update",
+  "editor.sync",
+]) {
+  assert.doesNotMatch(
+    [sourceText("apps"), sourceText("packages")].join("\n"),
+    new RegExp(`["']${forbiddenOperation.replace(".", "\\.")}["']`, "u"),
+    `Glass product synchronization must not define ${forbiddenOperation}`,
+  );
+}
+assert.doesNotMatch(
+  sourceText("packages/client-runtime/src"),
+  /(?:from|import\s*)\s*\(?["']@openeditor\//u,
+  "the Glass product sync runtime must not become an OpenEditor content runtime",
 );
 
 const desktopManifest = readJson("apps/desktop/package.json");
@@ -202,6 +370,11 @@ assert.match(
   ciWorkflow,
   /vp run --filter @glass\/desktop ensure:electron/u,
   "CI must validate the Electron runtime before building desktop outputs",
+);
+assert.match(
+  ciWorkflow,
+  /vp run --filter @glass\/api db:migrations[\s\S]*git diff --exit-code -- infra\/cloud\/migrations\/postgres/u,
+  "CI must reject drift between the durable schema and committed migrations",
 );
 assert.match(
   ciWorkflow,

@@ -21,7 +21,9 @@ Glass Cloud accepts authorized product intent, records durable execution metadat
 - Environment loss leaves the product usable and the operation state honest.
 - Reconnection does not infer that an interrupted process completed.
 
-The foundation exposes descriptors and boundaries only. It does not dispatch commands, run agents, persist executions, or implement an event model.
+The execution foundation exposes descriptors and boundaries only. It does not dispatch commands,
+run agents, persist executions, or implement an execution event model. Milestone 3 product change
+events belong to Glass Cloud synchronization and do not authorize or represent machine execution.
 
 ## Source map
 

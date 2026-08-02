@@ -6,6 +6,18 @@
     "./connections": {
       "types": "./src/connections.ts",
       "import": "./src/connections.ts"
+    },
+    "./outbox": {
+      "types": "./src/outbox.ts",
+      "import": "./src/outbox.ts"
+    },
+    "./snapshot": {
+      "types": "./src/snapshot.ts",
+      "import": "./src/snapshot.ts"
+    },
+    "./sync": {
+      "types": "./src/sync.ts",
+      "import": "./src/sync.ts"
     }
   },
   "scripts": {

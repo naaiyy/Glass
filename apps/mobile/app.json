@@ -2,6 +2,7 @@
   "expo": {
     "name": "Glass",
     "slug": "glass",
+    "scheme": "dev.glass.mobile",
     "version": "0.0.0",
     "orientation": "default",
     "userInterfaceStyle": "automatic",

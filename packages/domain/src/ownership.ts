@@ -13,7 +13,7 @@ export const ownershipByRuntime = {
     "organizations",
     "projects-and-artifacts",
     "threads-and-messages",
-    "shared-documents",
+    "notes-and-openeditor-payloads",
     "uploads-and-notifications",
     "environment-registry-and-pairing",
     "durable-execution-metadata-and-results",

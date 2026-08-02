@@ -13,7 +13,10 @@
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
+    "@better-auth/electron": "catalog:",
     "@glass/contracts": "workspace:*",
+    "better-auth": "catalog:",
+    "conf": "15.0.2",
     "electron": "41.5.0"
   },
   "devDependencies": {

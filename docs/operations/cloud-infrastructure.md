@@ -34,8 +34,9 @@ deployment variables.
 
 The production database is PlanetScale Postgres in `eu-central`, using
 `PS_5_AWS_X86` with two replicas. Non-production branches use `PS_DEV` with no
-replicas. All stages consume one committed migration chain generated from the
-Better Auth CLI schema at `apps/api/src/db/schema.ts`.
+replicas. All stages consume one committed migration chain. Better Auth generates
+`apps/api/src/db/auth-schema.generated.ts`; `apps/api/src/db/schema.ts` composes those tables with
+Glass-owned product tables before Drizzle generates migrations.
 
 Each stage owns a data-only runtime role and a Cloudflare Hyperdrive connection.
 Hyperdrive query caching is disabled and its PlanetScale origin pool is capped
@@ -100,7 +101,8 @@ in all three GitHub environments without changing binding names.
 
 - Infrastructure stack: `infra/cloud/alchemy.run.ts`
 - Stage policy: `infra/cloud/src/environments.ts`
-- Better Auth schema: `apps/api/src/db/schema.ts`
+- Generated Better Auth schema: `apps/api/src/db/auth-schema.generated.ts`
+- Composed durable schema: `apps/api/src/db/schema.ts`
 - Committed migrations: `infra/cloud/migrations/postgres/`
 - Cloud application boundary: `apps/api/`
 - CI verification: `.github/workflows/`

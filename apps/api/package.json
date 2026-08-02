@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "auth:schema": "auth generate --config src/auth.cli.ts --output src/db/schema.ts --yes",
-    "build": "vp build",
+    "auth:schema": "auth generate --config src/auth.cli.ts --output src/db/auth-schema.generated.ts --yes",
+    "build": "wrangler deploy --dry-run --outdir dist-worker && node scripts/smoke-built-worker.mjs",
     "db:migrations": "drizzle-kit generate --dialect postgresql --schema src/db/schema.ts --out ../../infra/cloud/migrations/postgres",
     "dev": "wrangler dev",
     "test": "vp test run",
@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.25",
+    "@better-auth/electron": "catalog:",
+    "@better-auth/expo": "catalog:",
     "@glass/contracts": "workspace:*",
-    "better-auth": "1.6.25",
+    "@openeditor/core": "catalog:",
+    "better-auth": "catalog:",
     "drizzle-orm": "0.45.2",
     "pg": "8.22.0"
   },

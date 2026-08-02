@@ -21,11 +21,14 @@ Provider resources change only through an explicit Alchemy deployment.
   standard `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, and
   `GITHUB_CLIENT_SECRET` configuration names. Better Auth scopes dynamic base
   URL resolution to the generated Worker host for the active Alchemy stage.
+- The same Worker serves the built web renderer. Authentication, product, and
+  health paths execute Worker code before static asset handling.
 - Hyperdrive query caching is disabled for correctness-sensitive auth data and
   each environment has an explicit 20-connection origin ceiling.
 
-Better Auth's CLI generates `apps/api/src/db/schema.ts`. Stable Drizzle Kit in
-`apps/api` generates the committed SQL and metadata in
+Better Auth's CLI generates only `apps/api/src/db/auth-schema.generated.ts`.
+`apps/api/src/db/schema.ts` composes those generated tables with Glass-owned
+product tables. Stable Drizzle Kit in `apps/api` generates the committed SQL and metadata in
 `infra/cloud/migrations/postgres`. Alchemy's PlanetScale provider applies that
 same migration chain to the selected branch using a temporary migration role.
 The persistent runtime role is data-only (`pg_read_all_data` and
@@ -39,10 +42,11 @@ branch while remaining unable to administer the database, roles, or schema.
 ```text
 vp run --filter @glass/api auth:schema
 vp run --filter @glass/api db:migrations
-git diff -- apps/api/src/db/schema.ts infra/cloud/migrations/postgres
+git diff -- apps/api/src/db/auth-schema.generated.ts apps/api/src/db/schema.ts infra/cloud/migrations/postgres
 ```
 
-Review and commit the schema, SQL, snapshot, and journal together. Ambiguous
+Never point the Better Auth generator at the composed schema. Review and commit the generated
+auth schema, composed schema, SQL, snapshot, and journal together. Ambiguous
 renames and destructive changes require an explicit human decision.
 
 ## Plan and deploy

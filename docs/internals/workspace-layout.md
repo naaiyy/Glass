@@ -25,7 +25,7 @@ Packages expose deliberate entry points. Do not introduce a root barrel that exp
 
 ## Infrastructure and documentation
 
-- `infra/cloud` — future declarative cloud infrastructure and environment configuration.
+- `infra/cloud` — declarative cloud infrastructure and environment configuration.
 - `docs/internals` — contributor architecture.
 - `docs/operations` — operational contracts and runbooks.
 - `docs/user` — shipped user behavior.

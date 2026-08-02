@@ -1,10 +1,13 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { electron } from "@better-auth/electron";
+import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
 
 import * as authSchema from "./db/schema.ts";
 import type { GlassAuthConfig } from "./env.ts";
+import { createPostgresProductService, type ProductService } from "./product-service.ts";
 
 export type AuthSession = Readonly<{
   session: Readonly<{ id: string; userId: string }>;
@@ -14,6 +17,7 @@ export type AuthSession = Readonly<{
 export interface GlassAuthRuntime {
   handle(request: Request): Promise<Response>;
   getSession(headers: Headers): Promise<AuthSession | null>;
+  product: ProductService;
   close(): Promise<void>;
 }
 
@@ -33,6 +37,7 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config) =>
         protocol: "https",
       },
       secret: config.secret,
+      trustedOrigins: [...config.trustedOrigins],
       database: drizzleAdapter(database, {
         provider: "pg",
         schema: authSchema,
@@ -43,6 +48,7 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config) =>
           clientSecret: config.github.clientSecret,
         },
       },
+      plugins: [electron({ clientID: "glass-desktop" }), expo()],
       advanced: {
         database: {
           generateId: () => crypto.randomUUID(),
@@ -53,6 +59,7 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config) =>
     return {
       handle: (request) => auth.handler(request),
       getSession: (headers) => auth.api.getSession({ headers }),
+      product: createPostgresProductService(client),
       close: () => client.end(),
     };
   } catch (cause) {

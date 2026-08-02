@@ -61,6 +61,11 @@ const cloudFoundation = Effect.gen(function* () {
   });
 
   const worker = yield* Cloudflare.Worker("Api", {
+    assets: {
+      directory: "../../apps/web/dist",
+      notFoundHandling: "single-page-application",
+      runWorkerFirst: ["/api/*", "/health", "/v1/*"],
+    },
     compatibility: {
       date: "2026-08-01",
       flags: ["nodejs_compat"],
@@ -80,6 +85,7 @@ const cloudFoundation = Effect.gen(function* () {
     stage: policy.stage,
     worker: worker.workerName,
     workerUrl: worker.url,
+    webUrl: worker.url,
   };
 });
 

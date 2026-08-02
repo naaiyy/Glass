@@ -6,7 +6,7 @@ CI follows the repository’s Vite Plus workflow on portable GitHub-hosted runne
 
 ## Canonical gates
 
-The foundation is verified with:
+The repository is verified with:
 
 ```text
 vp i
@@ -16,7 +16,11 @@ vp run test
 vp run build
 ```
 
-`voidzero-dev/setup-vp@v1` installs and caches the repository-pinned Vite Plus toolchain and dependencies. CI then runs configured formatting/lint checks, workspace typechecks, tests, and builds. The desktop pipeline additionally verifies its Electron outputs and preload artifact.
+`voidzero-dev/setup-vp@v1` installs and caches the repository-pinned Vite Plus toolchain and
+dependencies. CI then runs configured formatting/lint checks, workspace typechecks, tests, and
+builds. It regenerates Drizzle migrations and rejects any diff from the committed PostgreSQL
+migration history. The desktop pipeline additionally verifies its Electron outputs and preload
+artifact.
 
 CI does not launch the Electron GUI on a headless Linux runner. It validates the Electron runtime, builds the desktop pipeline, confirms the preload bundle exists, and checks that the required bridge symbols were emitted. Use the desktop smoke verifier on a graphical macOS development or QA machine when validating the real application window.
 
@@ -43,6 +47,7 @@ Automated checks enforce, at minimum:
 - desktop consumes the shared web renderer and produces its main/preload outputs.
 - all five runnable applications and all six packages participate in workspace verification.
 - package entry points are explicit and boundary contracts typecheck.
+- the durable schema and committed PostgreSQL migrations have no generated drift.
 
 Signing, deployment, app-store publication, and cloud credentials are not part of foundation CI. Workflows must not claim those external systems are configured.
 

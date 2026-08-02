@@ -12,12 +12,20 @@ allowBuilds:
   workerd: false
 
 catalog:
+  "@better-auth/electron": 1.6.25
+  "@better-auth/expo": 1.6.25
   "@effect/platform-node": 4.0.0-beta.102
   "@effect/tsgo": 0.13.2
   "@effect/vitest": 4.0.0-beta.102
+  "@openeditor/core": 0.0.34
+  "@openeditor/native": 0.0.34
+  "@openeditor/react": 0.0.34
+  "@openeditor/ui": 0.0.34
   "@types/node": 24.12.4
   "@typescript/native-preview": 7.0.0-dev.20260604.1
+  better-auth: 1.6.25
   effect: 4.0.0-beta.102
+  expo-crypto: ~57.0.1
   typescript: ~6.0.3
   vite: npm:@voidzero-dev/vite-plus-core@0.2.2
   vite-plus: 0.2.2
@@ -30,6 +38,7 @@ minimumReleaseAgeExclude:
   - "@cloudflare/workers-types@5.20260801.1"
   - wrangler@4.118.0
   - "@types/pg@8.20.3"
+  - "@openeditor/*"
 
 overrides:
   "@effect/platform-node": "catalog:"

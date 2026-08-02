@@ -1,4 +1,6 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { electron } from "@better-auth/electron";
+import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzle } from "drizzle-orm/node-postgres";
 
@@ -8,4 +10,5 @@ export const auth = betterAuth({
   database: drizzleAdapter(drizzle.mock(), {
     provider: "pg",
   }),
+  plugins: [electron({ clientID: "glass-desktop" }), expo()],
 });

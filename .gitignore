@@ -1,6 +1,7 @@
 node_modules/
 .vite-plus/
 dist/
+dist-worker/
 dist-electron/
 .expo/
 .electron-runtime/

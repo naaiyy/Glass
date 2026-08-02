@@ -23,9 +23,13 @@ Secrets and proof material never appear in logs, query strings, analytics, fixtu
 
 Pairing begins only after a signed-in user explicitly approves an environment. Glass Cloud records the environment and grants no broader scope than the approved relationship. The node proves possession of its key when exchanging for scoped credentials and tickets. Revocation terminates future exchanges and active transport where feasible. Re-pairing creates new trust material rather than reviving a revoked secret.
 
-## Foundation status
+## Current status
 
-Environment authentication is not implemented in the foundation. The API health/descriptor surface and execution capability descriptor are public foundation boundaries and do not simulate an authenticated product feature. Work requiring credentials or external authority remains blocked until real services and secrets exist.
+Glass Cloud user authentication is implemented. Environment
+registration, pairing, node credentials, proof of possession, and ticket exchange remain
+unimplemented. The public execution capability descriptor does not simulate an authenticated
+environment feature. Work requiring environment credentials or authority remains blocked until
+the real Milestone 4 boundary exists.
 
 ## Source map
 

@@ -17,6 +17,7 @@ describe("Glass API authentication bindings", () => {
       config: {
         allowedHosts: ["glasscloud-api-prod-*.workers.dev"],
         connectionString: "postgres://hyperdrive.invalid/glass",
+        trustedOrigins: ["dev.glass.desktop://*", "dev.glass.mobile://*"],
         secret: "a-secure-test-secret-with-at-least-32-characters",
         github: {
           clientId: "github-client-id",

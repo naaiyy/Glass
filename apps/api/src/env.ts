@@ -15,6 +15,7 @@ export type GlassApiBindingInput = Partial<
 export type GlassAuthConfig = Readonly<{
   allowedHosts: readonly string[];
   connectionString: string;
+  trustedOrigins: readonly string[];
   secret: string;
   github: Readonly<{
     clientId: string;
@@ -71,6 +72,7 @@ export const resolveGlassAuthConfig = (
     config: {
       allowedHosts: [`glasscloud-api-${stage}-*.workers.dev`],
       connectionString,
+      trustedOrigins: ["dev.glass.desktop://*", "dev.glass.mobile://*"],
       secret,
       github: {
         clientId: githubClientId,
