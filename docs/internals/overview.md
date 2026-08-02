@@ -29,9 +29,10 @@ the current editing session available for explicit retry.
 
 Milestones 0 through 2 supply runnable application and package boundaries, real Glass Cloud
 authentication, deployed cloud infrastructure, and the durable database connection. Milestone 3
-adds the repository implementation for organization-scoped product state, transactional change
-events, synchronization, and device-owned outbox behavior. Its external deployment is not implied
-until migrations, routes, authentication, and client flows pass the operational verification.
+adds organization-scoped product state, transactional change events, synchronization, and
+device-owned outbox behavior. Its migrations, routes, shared web renderer, and GitHub authentication
+entry are deployed in development, staging, and production; the production web authentication and
+product-only flow have passed live verification.
 
 The web client initiates GitHub authentication directly against Better Auth on the same deployed
 Worker origin. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
