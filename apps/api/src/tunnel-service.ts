@@ -21,7 +21,7 @@ export class TunnelServiceFailure extends Error {
 }
 
 const hostnameFor = (environmentId: string, zoneName: string, stage: string): string =>
-  `environment-${environmentId.toLowerCase()}.${stage === "prod" ? "" : `${stage}.`}connect.${zoneName.toLowerCase()}`;
+  `connect-${stage === "prod" ? "" : `${stage}-`}${environmentId.toLowerCase()}.${zoneName.toLowerCase()}`;
 
 const base64Url = (bytes: Uint8Array): string =>
   btoa(String.fromCharCode(...bytes))

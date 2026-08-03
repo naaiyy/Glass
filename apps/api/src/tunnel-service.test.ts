@@ -109,7 +109,7 @@ describe("managed tunnel ticket readiness", () => {
                 ...state,
                 environment_id: "environment-1",
                 organization_id: "organization-1",
-                hostname: "environment-environment-1.connect.glass.test",
+                hostname: "connect-environment-1.glass.test",
                 local_origin: "http://127.0.0.1:4321",
               },
             ],
@@ -159,7 +159,7 @@ describe("managed tunnel ticket readiness", () => {
               rows: [
                 {
                   generation: 1,
-                  hostname: "environment-1.connect.glass.test",
+                  hostname: "connect-environment-1.glass.test",
                   key_version: 1,
                   public_key: "public-key",
                 },
@@ -181,8 +181,60 @@ describe("managed tunnel ticket readiness", () => {
       "organization-1",
       "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     );
-    expect(ticket.websocketUrl).toBe("wss://environment-1.connect.glass.test/v1/connect");
+    expect(ticket.websocketUrl).toBe("wss://connect-environment-1.glass.test/v1/connect");
   });
+
+  it.each([
+    ["prod", "connect-environment-1.glass.test"],
+    ["staging", "connect-staging-environment-1.glass.test"],
+    ["dev", "connect-dev-environment-1.glass.test"],
+  ] as const)(
+    "keeps the %s Connect hostname within one TLS wildcard label",
+    async (stage, expected) => {
+      let provisionedHostname = "";
+      let calls = 0;
+      const client = {
+        query: async () => {
+          calls += 1;
+          return calls === 1
+            ? {
+                rows: [
+                  {
+                    status: "provisioning",
+                    generation: 1,
+                    tunnel_id: null,
+                    dns_record_id: null,
+                    provider_ownership_id: "owner-1",
+                  },
+                ],
+              }
+            : { rows: [{ tunnel_id: "tunnel-1" }] };
+        },
+      } as unknown as Client;
+      const service = createPostgresTunnelService(
+        client,
+        {
+          ...control,
+          provision: async (input) => {
+            provisionedHostname = input.hostname;
+            return await control.provision(input);
+          },
+        },
+        "glass.test",
+        stage,
+        async () => undefined,
+      );
+
+      await service.configure({
+        environmentId: "environment-1",
+        organizationId: "organization-1",
+        localOrigin: "http://127.0.0.1:4321",
+      });
+
+      expect(provisionedHostname).toBe(expected);
+      expect(provisionedHostname.split(".")[0]?.length).toBeLessThanOrEqual(63);
+    },
+  );
 
   it.each(["offline", "stale heartbeat", "connector crash"])(
     "rejects ticket issuance when node readiness is %s",
