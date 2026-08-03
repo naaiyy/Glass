@@ -54,6 +54,11 @@ const providerAccountMatches = (tunnel: ProviderTunnel, accountId: string): bool
   tunnel.account_tag === null ||
   tunnel.account_tag === accountId;
 
+const providerConfigurationIsRemote = (tunnel: ProviderTunnel): boolean =>
+  tunnel.config_src === undefined ||
+  tunnel.config_src === null ||
+  tunnel.config_src === "cloudflare";
+
 const tunnelZone = Cloudflare.Zone.Zone.ref("ConnectTunnelZone", {
   stage: glassCloudProductionStage,
 });
@@ -181,12 +186,17 @@ export default TunnelControlWorker.make(
           if (!Array.isArray(listed))
             return yield* Effect.die("Cloudflare returned an invalid tunnel list.");
           const matchingTunnels = listed.filter((candidate) => candidate.name === input.name);
+          console.log("Tunnel candidates reconciled.", {
+            listedCount: listed.length,
+            matchingCount: matchingTunnels.length,
+          });
           if (matchingTunnels.length > 1)
             return yield* Effect.die("Cloudflare returned duplicate tunnels for one owner.");
           const existing = matchingTunnels[0];
           if (
             existing !== undefined &&
-            (existing.config_src !== "cloudflare" || !providerAccountMatches(existing, accountId))
+            (!providerConfigurationIsRemote(existing) ||
+              !providerAccountMatches(existing, accountId))
           )
             return yield* Effect.die("Tunnel ownership verification failed.");
           const tunnel =
@@ -285,7 +295,7 @@ export default TunnelControlWorker.make(
           if (tunnel === null) return;
           if (
             tunnel.name !== `glass-${stage}-${ownershipId}` ||
-            tunnel.config_src !== "cloudflare" ||
+            !providerConfigurationIsRemote(tunnel) ||
             !providerAccountMatches(tunnel, accountId)
           )
             return yield* Effect.die("Tunnel ownership verification failed.");

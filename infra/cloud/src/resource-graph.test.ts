@@ -61,6 +61,7 @@ describe("Glass Cloud Alchemy resource graph", () => {
     expect(tunnelControlSource).toContain("name.exact=");
     expect(tunnelControlSource).toContain("allowNotFound: true");
     expect(tunnelControlSource).toContain("providerAccountMatches");
+    expect(tunnelControlSource).toContain("providerConfigurationIsRemote");
     expect(tunnelControlSource).not.toContain("alchemy/Planetscale");
     expect(stackSource).not.toContain("GLASS_STAGE");
     expect(stackSource).not.toContain("BETTER_AUTH_URL");
