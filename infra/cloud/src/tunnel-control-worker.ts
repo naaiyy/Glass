@@ -193,6 +193,11 @@ export default TunnelControlWorker.make(
           if (matchingTunnels.length > 1)
             return yield* Effect.die("Cloudflare returned duplicate tunnels for one owner.");
           const existing = matchingTunnels[0];
+          if (existing !== undefined)
+            console.log("Tunnel ownership metadata verified.", {
+              accountMatches: providerAccountMatches(existing, accountId),
+              configurationIsRemote: providerConfigurationIsRemote(existing),
+            });
           if (
             existing !== undefined &&
             (!providerConfigurationIsRemote(existing) ||
