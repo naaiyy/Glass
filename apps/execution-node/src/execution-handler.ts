@@ -36,7 +36,14 @@ const maxDirectoryEntries = 1_000;
 const maxOperationOutputBytes = 10 * 1_024 * 1_024;
 const maxCheckpointBytes = 2 * 1_024 * 1_024 * 1_024;
 const maxCheckpointEntries = 100_000;
+const checkpointDependencyDirectory = "node_modules";
 const require = createRequire(import.meta.url);
+
+const isCheckpointDependencyPath = (path: string): boolean =>
+  path
+    .split(/[\\/]/u)
+    .filter((component) => component !== ".")
+    .includes(checkpointDependencyDirectory);
 
 const ensurePtyHelperExecutable = async (): Promise<void> => {
   if (process.platform === "win32") return;
@@ -500,6 +507,7 @@ class ExecutionRuntime {
       if (directory === undefined) break;
       // eslint-disable-next-line no-await-in-loop -- directory traversal is intentionally bounded and sequential.
       for (const entry of await readdir(directory, { withFileTypes: true })) {
+        if (entry.name === checkpointDependencyDirectory) continue;
         entries += 1;
         if (entries > maxCheckpointEntries)
           throw new ExecutionFault(
@@ -531,7 +539,16 @@ class ExecutionRuntime {
     const directory = this.checkpointDirectory(workspace.id);
     await mkdir(directory, { recursive: true, mode: 0o700 });
     const archive = join(directory, `${id}.tar.gz`);
-    await tar.create({ cwd: workspace.root, file: archive, gzip: true, portable: true }, ["."]);
+    await tar.create(
+      {
+        cwd: workspace.root,
+        file: archive,
+        filter: (path) => !isCheckpointDependencyPath(path),
+        gzip: true,
+        portable: true,
+      },
+      ["."],
+    );
     const summary: CheckpointSummary = {
       id,
       workspaceId: workspace.id,
@@ -557,8 +574,29 @@ class ExecutionRuntime {
     ) as CheckpointSummary;
     await stat(archive);
     const rollback = join(dirname(workspace.root), `.glass-rollback-${randomUUID()}`);
+    const dependencies = join(dirname(workspace.root), `.glass-dependencies-${randomUUID()}`);
     await mkdir(rollback, { mode: 0o700 });
+    await mkdir(dependencies, { mode: 0o700 });
+    const dependencyPaths = await this.checkpointDependencyPaths(workspace.root);
+    for (const path of dependencyPaths) {
+      const parked = join(dependencies, path);
+      // eslint-disable-next-line no-await-in-loop -- dependency trees are parked before their parents move.
+      await mkdir(dirname(parked), { recursive: true, mode: 0o700 });
+      // eslint-disable-next-line no-await-in-loop -- same-filesystem renames preserve large dependency trees without copying.
+      await rename(join(workspace.root, path), parked);
+    }
     const existing = await readdir(workspace.root);
+    const restoredDependencies: string[] = [];
+    const restoreDependencies = async (): Promise<void> => {
+      for (const path of dependencyPaths) {
+        const target = join(workspace.root, path);
+        // eslint-disable-next-line no-await-in-loop -- dependency trees return only after the archive is safely extracted.
+        await mkdir(dirname(target), { recursive: true, mode: 0o700 });
+        // eslint-disable-next-line no-await-in-loop -- each parked tree has one exact workspace destination.
+        await rename(join(dependencies, path), target);
+        restoredDependencies.push(path);
+      }
+    };
     try {
       for (const entry of existing) {
         // eslint-disable-next-line no-await-in-loop -- rollback moves are ordered to preserve recoverability.
@@ -566,7 +604,16 @@ class ExecutionRuntime {
       }
       try {
         await tar.extract({ cwd: workspace.root, file: archive, strict: true });
+        await restoreDependencies();
       } catch (error) {
+        for (const path of restoredDependencies.toReversed()) {
+          const parked = join(dependencies, path);
+          // eslint-disable-next-line no-await-in-loop -- return partially restored dependencies before rollback cleanup.
+          await mkdir(dirname(parked), { recursive: true, mode: 0o700 });
+          // eslint-disable-next-line no-await-in-loop -- rollback must retain every parked dependency tree.
+          await rename(join(workspace.root, path), parked);
+        }
+        restoredDependencies.length = 0;
         for (const entry of await readdir(workspace.root)) {
           // eslint-disable-next-line no-await-in-loop -- rollback cleanup must finish before restoring entries.
           await rm(join(workspace.root, entry), { recursive: true, force: true });
@@ -575,14 +622,36 @@ class ExecutionRuntime {
           // eslint-disable-next-line no-await-in-loop -- restore moves are ordered to preserve recoverability.
           await rename(join(rollback, entry), join(workspace.root, entry));
         }
+        await restoreDependencies();
         throw error;
       }
       await rm(rollback, { recursive: true, force: true });
+      await rm(dependencies, { recursive: true, force: true });
       return summary;
     } catch (error) {
       await rm(rollback, { recursive: true, force: true }).catch(() => undefined);
+      await rm(dependencies, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }
+  }
+
+  private async checkpointDependencyPaths(root: string): Promise<readonly string[]> {
+    const paths: string[] = [];
+    const pending = [root];
+    while (pending.length > 0) {
+      const directory = pending.pop();
+      if (directory === undefined) break;
+      // eslint-disable-next-line no-await-in-loop -- dependency discovery is bounded by the workspace tree.
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const target = join(directory, entry.name);
+        if (entry.name === checkpointDependencyDirectory) {
+          paths.push(relative(root, target));
+        } else if (entry.isDirectory()) {
+          pending.push(target);
+        }
+      }
+    }
+    return paths.sort((left, right) => right.split(sep).length - left.split(sep).length);
   }
 }
 

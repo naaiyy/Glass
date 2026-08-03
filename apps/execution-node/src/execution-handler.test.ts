@@ -385,6 +385,42 @@ describe("execution node handler", () => {
     });
   });
 
+  it("excludes and preserves dependency trees that contain package-manager symlinks", async () => {
+    const { handler, root, workspace } = await setup();
+    await writeFile(join(workspace, "tracked.txt"), "before");
+    const dependencies = join(workspace, "node_modules");
+    await mkdir(join(dependencies, ".pnpm", "fixture"), { recursive: true });
+    await writeFile(join(dependencies, ".pnpm", "fixture", "index.js"), "export default 1;");
+    await symlink(join(dependencies, ".pnpm", "fixture"), join(dependencies, "fixture"));
+
+    const created = await request(handler, "checkpoint.create", {
+      operation: "checkpoint.create",
+      workspaceId,
+      label: "With dependencies",
+    });
+    const payload = terminalValue(created) as { status: string; value: { id: string } };
+    expect(payload.status).toBe("succeeded");
+
+    await writeFile(join(workspace, "tracked.txt"), "after");
+    await writeFile(join(dependencies, "installed-after-checkpoint.txt"), "keep");
+    await request(handler, "checkpoint.restore", {
+      operation: "checkpoint.restore",
+      workspaceId,
+      checkpointId: payload.value.id,
+    });
+
+    expect(await readFile(join(workspace, "tracked.txt"), "utf8")).toBe("before");
+    expect(await readFile(join(dependencies, "installed-after-checkpoint.txt"), "utf8")).toBe(
+      "keep",
+    );
+    expect(await readFile(join(dependencies, "fixture", "index.js"), "utf8")).toBe(
+      "export default 1;",
+    );
+    await expect(readFile(join(root, "secret.txt"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("replays a completed operation without repeating its mutation", async () => {
     const { handler, workspace, root } = await setup();
     const operationId = crypto.randomUUID();

@@ -154,6 +154,9 @@ if (command === "descriptor") {
       return configuration;
     },
     installRoot: join(dirname(identityPath), "bin"),
+    log: ({ stream, value }) => {
+      process.stderr.write(`[Glass Connect ${stream}] ${value}\n`);
+    },
     onFatal: controlFailure,
     onHealthy: () => {
       void control
@@ -172,7 +175,10 @@ if (command === "descriptor") {
         void deliveryRecovery.flush().catch(controlFailure);
       }, 1_000);
     },
-    onDisconnected: () => {
+    onDisconnected: (error) => {
+      process.stderr.write(
+        `[Glass Connect] Connector unavailable: ${error instanceof Error ? error.message : "Unknown failure."}\n`,
+      );
       if (heartbeat !== null) clearInterval(heartbeat);
       heartbeat = null;
       if (recoveryTimer !== null) clearInterval(recoveryTimer);

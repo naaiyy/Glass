@@ -51,6 +51,8 @@ describe("Glass Cloud Alchemy resource graph", () => {
     expect(stackSource).toContain('flags: ["nodejs_compat"]');
     expect(tunnelControlSource).toContain('flags: ["nodejs_compat"]');
     expect(tunnelControlSource).toContain("main: import.meta.url");
+    expect(tunnelControlSource).not.toContain("ReadWriteTunnelBinding");
+    expect(tunnelControlSource).toContain('permissionGroups: ["Cloudflare Tunnel Write"]');
     expect(tunnelControlSource).not.toContain("alchemy/Planetscale");
     expect(stackSource).not.toContain("GLASS_STAGE");
     expect(stackSource).not.toContain("BETTER_AUTH_URL");

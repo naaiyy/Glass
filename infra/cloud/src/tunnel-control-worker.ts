@@ -1,7 +1,6 @@
 import type * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import { glassCloudProductionStage } from "./environments.ts";
 import { tunnelRequiresDeletion } from "./tunnel-cleanup.ts";
@@ -27,6 +26,14 @@ export class TunnelControlWorker extends Cloudflare.Worker<
   TunnelControlShape
 >()("TunnelControl") {}
 
+type ProviderTunnel = Readonly<{
+  account_tag?: string | null;
+  config_src?: string | null;
+  deleted_at?: string | null;
+  id?: string | null;
+  name?: string | null;
+}>;
+
 const tunnelZone = Cloudflare.Zone.Zone.ref("ConnectTunnelZone", {
   stage: glassCloudProductionStage,
 });
@@ -38,48 +45,89 @@ export default TunnelControlWorker.make(
     workersDev: false,
   },
   Effect.gen(function* () {
-    const tunnels = yield* Cloudflare.Tunnel.ReadWriteTunnel();
     const dns = yield* Cloudflare.DNS.ReadWriteDns(tunnelZone);
     const workerEnvironment = yield* Cloudflare.WorkerEnvironment;
     const stage = String(workerEnvironment.ALCHEMY_STAGE);
     const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
-    const cleanupToken = yield* Cloudflare.ApiToken.AccountApiToken(
-      "TunnelConnectionCleanupToken",
-      {
-        accountId,
-        policies: [
-          {
-            effect: "allow",
-            permissionGroups: ["Cloudflare Tunnel Write"],
-            resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
-          },
-        ],
-      },
-    );
-    const cleanupTokenValue = yield* cleanupToken.value;
-    const cleanupAccountId = yield* cleanupToken.accountId;
+    const tunnelProviderToken = yield* Cloudflare.ApiToken.AccountApiToken("TunnelProviderToken", {
+      accountId,
+      policies: [
+        {
+          effect: "allow",
+          permissionGroups: ["Cloudflare Tunnel Write"],
+          resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
+        },
+      ],
+    });
+    const tunnelProviderTokenValue = yield* tunnelProviderToken.value;
+    const tunnelProviderAccountId = yield* tunnelProviderToken.accountId;
+    const providerRequest = <Value>(
+      path: string,
+      init: Readonly<{ body?: unknown; method?: "DELETE" | "GET" | "POST" | "PUT" }> = {},
+    ) =>
+      Effect.gen(function* () {
+        const token = Redacted.value(yield* tunnelProviderTokenValue);
+        const boundAccountId = yield* tunnelProviderAccountId;
+        const response = yield* Effect.tryPromise(() =>
+          fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(boundAccountId)}${path}`,
+            {
+              method: init.method ?? "GET",
+              headers: {
+                authorization: `Bearer ${token}`,
+                ...(init.body === undefined ? {} : { "content-type": "application/json" }),
+              },
+              ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+            },
+          ),
+        );
+        if (response.status === 404) return null;
+        const envelope = yield* Effect.tryPromise(() => response.json() as Promise<unknown>);
+        if (
+          !response.ok ||
+          typeof envelope !== "object" ||
+          envelope === null ||
+          !("success" in envelope) ||
+          envelope.success !== true ||
+          !("result" in envelope)
+        )
+          return yield* Effect.die("Cloudflare rejected a tunnel-control request.");
+        return envelope.result as Value;
+      });
     return {
       provision: (input) =>
         Effect.gen(function* () {
-          const listed = yield* tunnels.list({ isDeleted: false, name: input.name });
-          const existing = listed.result?.find((candidate) => candidate.name === input.name);
+          const listed = yield* providerRequest<readonly ProviderTunnel[]>(
+            `/cfd_tunnel?is_deleted=false&name=${encodeURIComponent(input.name)}`,
+          );
+          if (!Array.isArray(listed))
+            return yield* Effect.die("Cloudflare returned an invalid tunnel list.");
+          const existing = listed.find((candidate) => candidate.name === input.name);
           if (
             existing !== undefined &&
-            (existing.configSrc !== "cloudflare" || existing.accountTag !== accountId)
+            (existing.config_src !== "cloudflare" || existing.account_tag !== accountId)
           )
             return yield* Effect.die("Tunnel ownership verification failed.");
           const tunnel =
             existing?.id === undefined
-              ? yield* tunnels.create({ name: input.name, configSrc: "cloudflare" })
+              ? yield* providerRequest<ProviderTunnel>("/cfd_tunnel", {
+                  body: { name: input.name, config_src: "cloudflare" },
+                  method: "POST",
+                })
               : existing;
-          if (tunnel.id === undefined || tunnel.id === null)
+          if (tunnel === null || tunnel.id === undefined || tunnel.id === null)
             return yield* Effect.die("Tunnel creation returned no id.");
           const tunnelId = tunnel.id;
-          yield* tunnels.putConfiguration(tunnelId, {
-            ingress: [
-              { hostname: input.hostname, service: input.service },
-              { service: "http_status:404" },
-            ],
+          yield* providerRequest(`/cfd_tunnel/${encodeURIComponent(tunnelId)}/configurations`, {
+            body: {
+              config: {
+                ingress: [
+                  { hostname: input.hostname, service: input.service },
+                  { service: "http_status:404" },
+                ],
+              },
+            },
+            method: "PUT",
           });
           const records = yield* dns.listDnsRecords({
             name: { exact: input.hostname },
@@ -111,29 +159,9 @@ export default TunnelControlWorker.make(
           return { tunnelId, dnsRecordId: record.id };
         }),
       disconnect: (tunnelId) =>
-        Effect.gen(function* () {
-          const token = Redacted.value(yield* cleanupTokenValue);
-          const boundAccountId = yield* cleanupAccountId;
-          const response = yield* Effect.tryPromise(() =>
-            fetch(
-              `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(boundAccountId)}/cfd_tunnel/${encodeURIComponent(tunnelId)}/connections`,
-              {
-                method: "DELETE",
-                headers: { authorization: `Bearer ${token}` },
-              },
-            ),
-          );
-          if (response.status === 404) return;
-          const envelope = yield* Effect.tryPromise(() => response.json() as Promise<unknown>);
-          if (
-            !response.ok ||
-            typeof envelope !== "object" ||
-            envelope === null ||
-            !("success" in envelope) ||
-            envelope.success !== true
-          )
-            return yield* Effect.die("Cloudflare rejected tunnel connection cleanup.");
-        }),
+        providerRequest(`/cfd_tunnel/${encodeURIComponent(tunnelId)}/connections`, {
+          method: "DELETE",
+        }).pipe(Effect.asVoid),
       delete: ({ dnsRecordId, ownershipId, tunnelId }) =>
         Effect.gen(function* () {
           yield* Effect.gen(function* () {
@@ -151,21 +179,30 @@ export default TunnelControlWorker.make(
             ),
           );
           yield* Effect.gen(function* () {
-            const tunnel = yield* tunnels.get(tunnelId);
+            const tunnel = yield* providerRequest<ProviderTunnel>(
+              `/cfd_tunnel/${encodeURIComponent(tunnelId)}`,
+            );
+            if (tunnel === null) return;
             if (
               tunnel.name !== `glass-${stage}-${ownershipId}` ||
-              tunnel.configSrc !== "cloudflare" ||
-              tunnel.accountTag !== accountId
+              tunnel.config_src !== "cloudflare" ||
+              tunnel.account_tag !== accountId
             )
               return yield* Effect.die("Tunnel ownership verification failed.");
-            if (tunnelRequiresDeletion(tunnel)) yield* tunnels.delete(tunnelId);
-          }).pipe(Effect.catchTag("TunnelNotFound", () => Effect.void));
+            if (tunnelRequiresDeletion({ deletedAt: tunnel.deleted_at ?? null }))
+              yield* providerRequest(`/cfd_tunnel/${encodeURIComponent(tunnelId)}`, {
+                method: "DELETE",
+              });
+          });
         }),
-      token: (tunnelId) => tunnels.getToken(tunnelId),
+      token: (tunnelId) =>
+        providerRequest<string>(`/cfd_tunnel/${encodeURIComponent(tunnelId)}/token`).pipe(
+          Effect.flatMap((token) =>
+            typeof token === "string" && token.length > 0
+              ? Effect.succeed(token)
+              : Effect.die("Tunnel token retrieval returned an invalid value."),
+          ),
+        ),
     } satisfies TunnelControlShape;
-  }).pipe(
-    Effect.provide(
-      Layer.merge(Cloudflare.Tunnel.ReadWriteTunnelBinding, Cloudflare.DNS.ReadWriteDnsHttp),
-    ),
-  ),
+  }).pipe(Effect.provide(Cloudflare.DNS.ReadWriteDnsHttp)),
 );

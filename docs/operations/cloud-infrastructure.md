@@ -47,11 +47,10 @@ tunnel-control service, tunnel zone name, ticket secret, and separate Cloudflare
 bindings for environment-trust mutations, polling, and authenticated node control. The
 tunnel-control service receives
 least-privilege runtime access for remotely managed tunnels and DNS records in the selected active
-zone. Alchemy's tunnel CRUD binding does not expose the official forced-connection cleanup API, so
-the private service has one additional account token scoped only to Cloudflare Tunnel Write. That
-credential is used only to delete active tunnel connections. This intentionally duplicates tunnel
-write authority; it adds no DNS or product authority, never leaves the private Worker, and must be
-rotated and audited with the generated tunnel binding token. Better
+zone. The private service has one account token scoped only to Cloudflare Tunnel Write for tunnel
+creation, configuration, token retrieval, forced connection cleanup, and deletion through the
+provider API. DNS uses a separate zone-scoped binding. These credentials add no product authority,
+never leave the private Worker, and are rotated and audited independently. Better
 Auth uses the stage to allow only the matching generated `workers.dev` host
 when resolving its OAuth base URL. Alchemy resolves each secret through `Config.redacted`
 and uploads it as a Cloudflare `secret_text` binding. Authentication routes
