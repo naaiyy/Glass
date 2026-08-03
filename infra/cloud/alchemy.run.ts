@@ -104,6 +104,7 @@ const cloudFoundation = Effect.gen(function* () {
   const tunnelControlLayer = TunnelControlWorker.make(
     {
       compatibility: { date: "2026-08-01", flags: ["nodejs_compat"] },
+      main: import.meta.url,
       workersDev: false,
     },
     Effect.gen(function* () {

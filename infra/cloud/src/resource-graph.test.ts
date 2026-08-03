@@ -45,6 +45,7 @@ describe("Glass Cloud Alchemy resource graph", () => {
     expect(stackSource).toContain("simple: { limit: 120, period: 60 }");
     expect(stackSource).toContain("originConnectionLimit: 20");
     expect(stackSource).toContain('flags: ["nodejs_compat"]');
+    expect(stackSource).toContain("main: import.meta.url");
     expect(stackSource).not.toContain("GLASS_STAGE");
     expect(stackSource).not.toContain("BETTER_AUTH_URL");
   });
