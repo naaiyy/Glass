@@ -28,10 +28,11 @@ Provider resources change only through an explicit Alchemy deployment.
 - `CONNECT_TUNNEL_ZONE_NAME` selects an active Cloudflare DNS zone. Each environment receives a
   deterministic, stage-scoped hostname with a proxied CNAME to its remotely managed tunnel.
 - A private `TUNNEL_CONTROL` Worker receives least-privilege runtime Tunnel Write and zone-scoped
-  DNS Write bindings. The public API cannot turn those provider credentials into client authority.
+  DNS Read/Write credentials. The public API cannot turn those provider credentials into client
+  authority.
 - A Cloudflare account token scoped only to Tunnel Write is confined to the private control Worker
   and performs tunnel creation, configuration, token retrieval, forced connection cleanup, and
-  deletion through the provider API. DNS remains a separate zone-scoped binding. Neither provider
+  deletion through the provider API. DNS remains a separate zone-scoped token. Neither provider
   credential is exposed to the public API Worker or a client.
 - The Worker binds the `CONNECT_AUTHORITY` Durable Object namespace for proof freshness and ticket
   generation only; execution frames travel directly through the per-environment tunnel. It also

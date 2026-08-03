@@ -49,7 +49,7 @@ tunnel-control service receives
 least-privilege runtime access for remotely managed tunnels and DNS records in the selected active
 zone. The private service has one account token scoped only to Cloudflare Tunnel Write for tunnel
 creation, configuration, token retrieval, forced connection cleanup, and deletion through the
-provider API. DNS uses a separate zone-scoped binding. These credentials add no product authority,
+provider API. DNS uses a separate zone-scoped token. These credentials add no product authority,
 never leave the private Worker, and are rotated and audited independently. Better
 Auth uses the stage to allow only the matching generated `workers.dev` host
 when resolving its OAuth base URL. Alchemy resolves each secret through `Config.redacted`
