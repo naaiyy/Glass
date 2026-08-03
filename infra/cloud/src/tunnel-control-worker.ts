@@ -49,6 +49,11 @@ type ProviderRequestInit = Readonly<{
 
 const providerRequestTimeoutMilliseconds = 15_000;
 
+const providerAccountMatches = (tunnel: ProviderTunnel, accountId: string): boolean =>
+  tunnel.account_tag === undefined ||
+  tunnel.account_tag === null ||
+  tunnel.account_tag === accountId;
+
 const tunnelZone = Cloudflare.Zone.Zone.ref("ConnectTunnelZone", {
   stage: glassCloudProductionStage,
 });
@@ -181,7 +186,7 @@ export default TunnelControlWorker.make(
           const existing = matchingTunnels[0];
           if (
             existing !== undefined &&
-            (existing.config_src !== "cloudflare" || existing.account_tag !== accountId)
+            (existing.config_src !== "cloudflare" || !providerAccountMatches(existing, accountId))
           )
             return yield* Effect.die("Tunnel ownership verification failed.");
           const tunnel =
@@ -281,7 +286,7 @@ export default TunnelControlWorker.make(
           if (
             tunnel.name !== `glass-${stage}-${ownershipId}` ||
             tunnel.config_src !== "cloudflare" ||
-            tunnel.account_tag !== accountId
+            !providerAccountMatches(tunnel, accountId)
           )
             return yield* Effect.die("Tunnel ownership verification failed.");
           if (tunnelRequiresDeletion({ deletedAt: tunnel.deleted_at ?? null }))
