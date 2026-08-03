@@ -42,6 +42,11 @@ const iso = (value: Date | string | null): IsoDateTime | null =>
 const encodedBytes = (value: unknown): number =>
   new TextEncoder().encode(JSON.stringify(value)).byteLength;
 
+// node-postgres encodes top-level arrays as PostgreSQL arrays. Execution payloads are
+// JSONB, so serialize them explicitly before they cross the database boundary.
+const jsonParameter = (value: unknown): string | null =>
+  value === null ? null : JSON.stringify(value);
+
 const canonicalJson = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (typeof value === "object" && value !== null) {
@@ -575,7 +580,7 @@ export const createPostgresExecutionService = (client: Client): ExecutionService
         );
       await client.query(
         `insert into execution_operation_events (operation_id, sequence, event, payload) values ($1,$2,$3,$4)`,
-        [frame.operationId, nextSequence, event, payload],
+        [frame.operationId, nextSequence, event, jsonParameter(payload)],
       );
       const terminalStatus =
         event === "result"
@@ -601,8 +606,8 @@ export const createPostgresExecutionService = (client: Client): ExecutionService
           frame.operationId,
           nextSequence,
           terminalStatus,
-          result,
-          event === "error" ? payload : null,
+          jsonParameter(result),
+          event === "error" ? jsonParameter(payload) : null,
         ],
       );
     }),
