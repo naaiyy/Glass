@@ -16,6 +16,8 @@ import type {
 } from "@glass/contracts/ids";
 import { decodeId } from "@glass/contracts/ids";
 import type { NoteArtifact } from "@glass/contracts/product";
+import type { ExecutionRequest } from "@glass/contracts/execution";
+import type { ConnectOperationCancel } from "@glass/contracts/connect";
 import type { OrganizationMembershipItem } from "@glass/contracts/organizations";
 import type { ProductSnapshot } from "@glass/contracts/sync";
 import type { OpenEditorDocument } from "@openeditor/core";
@@ -83,14 +85,21 @@ import {
   approveEnvironmentRotation,
   authorizeEnvironmentConnection,
   bindWorkspace,
-  createFileList,
+  cancelExecutionOperation,
+  createExecutionOperation,
   listEnvironments,
   listWorkspaceBindings,
   loadExecutionOperation,
   loadEnvironmentPresence,
   loadWorkspaceCatalog,
+  redispatchExecutionOperation,
   revokeEnvironment,
 } from "./cloud/environments.ts";
+import {
+  buildMobileExecutionRequest,
+  type MobileExecutionDraft,
+} from "./cloud/execution-console.ts";
+import { MobileExecutionConsole } from "./ExecutionConsole.tsx";
 import type { ExecutionEnvironment } from "@glass/contracts/environments";
 import type { WorkspaceBinding } from "@glass/contracts/execution-cloud";
 
@@ -607,13 +616,217 @@ const ExecutionCard = ({
   const [catalog, setCatalog] = useState<
     Readonly<Record<string, readonly Readonly<{ id: WorkspaceId; name: string }>[]>>
   >({});
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<string | null>(null);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<WorkspaceId | null>(null);
   const [result, setResult] = useState<unknown>(null);
+  const [progress, setProgress] = useState<readonly string[]>([]);
+  const [activeExecution, setActiveExecution] = useState<Readonly<{
+    apiBaseUrl: string;
+    operationId: ExecutionOperationId;
+    requestId: string;
+  }> | null>(null);
+  const [executionPending, setExecutionPending] = useState(false);
   const [pairingCode, setPairingCode] = useState("");
   const [rotationCode, setRotationCode] = useState("");
   const [trustActionPending, setTrustActionPending] = useState(false);
   const [environmentGeneration, setEnvironmentGeneration] = useState(0);
   const connection = useRef<GlassConnectClient | null>(null);
+  const pendingCancellation = useRef<ConnectOperationCancel | null>(null);
+
+  const startExecution = (
+    environment: ExecutionEnvironment,
+    binding: WorkspaceBinding,
+    draft: MobileExecutionDraft,
+  ) => {
+    if (organizationId === null || projectId === null) return;
+    let executionRequest: ExecutionRequest;
+    try {
+      executionRequest = buildMobileExecutionRequest(draft, binding.id);
+    } catch (error) {
+      setMessage(errorMessage(error));
+      return;
+    }
+    const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+    const operationId = randomUUID() as ExecutionOperationId;
+    const requestId = randomUUID();
+    setProgress([]);
+    setResult(null);
+    setExecutionPending(true);
+    pendingCancellation.current = null;
+    setMessage(`Creating durable ${executionRequest.operation} intent…`);
+    void createExecutionOperation(
+      apiBaseUrl,
+      organizationId,
+      environment.id,
+      projectId,
+      binding.id,
+      operationId,
+      requestId,
+      executionRequest,
+    )
+      .then((dispatch) => {
+        connection.current?.stop();
+        let dispatched = false;
+        const client = new GlassConnectClient({
+          environmentIdentity: {
+            id: environment.id,
+            keyVersion: environment.keyVersion,
+            organizationId: environment.organizationId,
+            publicKey: environment.publicKey,
+          },
+          getTicket: (clientNonce) =>
+            authorizeEnvironmentConnection(apiBaseUrl, organizationId, environment.id, clientNonce),
+          makeSocket: (ticket) =>
+            new WebSocket(ticket.websocketUrl, [
+              "glass-connect-v2",
+              `glass-ticket.${ticket.ticket}`,
+            ]) as unknown as ClientConnectSocket,
+          onFrame: (frame) => {
+            if (frame.type === "operation.error") {
+              setMessage(frame.error.message);
+              setResult(frame.error);
+              setActiveExecution(null);
+              pendingCancellation.current = null;
+              client.stop();
+              return;
+            }
+            if (frame.event === "progress") {
+              const payload = frame.payload;
+              const line =
+                typeof payload === "object" &&
+                payload !== null &&
+                "data" in payload &&
+                typeof payload.data === "string"
+                  ? `${"stream" in payload ? `[${String(payload.stream)}] ` : ""}${payload.data}`
+                  : JSON.stringify(payload);
+              setProgress((current) => [...current, line].slice(-200));
+              setMessage(`${executionRequest.operation} is streaming from the execution node.`);
+              return;
+            }
+            setResult(frame.payload);
+            setMessage(`${executionRequest.operation} completed and its result is durable.`);
+            setActiveExecution(null);
+            pendingCancellation.current = null;
+            client.stop();
+          },
+          onOnline: () => {
+            void (async () => {
+              if (dispatched) {
+                if (
+                  pendingCancellation.current !== null &&
+                  client.send(pendingCancellation.current)
+                ) {
+                  pendingCancellation.current = null;
+                  setMessage("Cancellation sent after execution reconnected.");
+                }
+                const redispatch = await redispatchExecutionOperation(apiBaseUrl, operationId);
+                if ("dispatchGrant" in redispatch) {
+                  const accepted = client.send({
+                    type: "operation.request",
+                    requestId: redispatch.operation.requestId,
+                    operationId: redispatch.operation.operationId,
+                    capability: redispatch.operation.request.operation,
+                    dispatchGrant: redispatch.dispatchGrant,
+                    payload: redispatch.operation.request,
+                  });
+                  setMessage(
+                    accepted
+                      ? `Redispatched queued ${executionRequest.operation} after reconnecting.`
+                      : "The durable operation is queued, but this connection changed before redispatch.",
+                  );
+                  return;
+                }
+                const durable = redispatch;
+                setProgress(
+                  durable.events
+                    .filter((event) => event.event === "progress")
+                    .map((event) => JSON.stringify(event.payload)),
+                );
+                if (["succeeded", "failed", "cancelled"].includes(durable.status)) {
+                  setResult(durable.result ?? durable.error);
+                  setMessage(`Durable execution state: ${durable.status}.`);
+                  setActiveExecution(null);
+                  pendingCancellation.current = null;
+                  client.stop();
+                  return;
+                }
+                setMessage(
+                  `Durable execution state: ${durable.status}. Waiting for node reconciliation without redispatching side effects.`,
+                );
+                return;
+              }
+              dispatched = client.send({
+                type: "operation.request",
+                requestId,
+                operationId,
+                capability: executionRequest.operation,
+                dispatchGrant: dispatch.dispatchGrant,
+                payload: executionRequest,
+              });
+              if (dispatched)
+                setMessage(
+                  `Connected through Glass Connect. Running ${executionRequest.operation}…`,
+                );
+            })().catch((error: unknown) => setMessage(errorMessage(error)));
+          },
+          onStatus: (status) => {
+            if (status.status !== "reconnecting") return;
+            setMessage("Execution is reconnecting. Glass Cloud product access remains available.");
+            void loadExecutionOperation(apiBaseUrl, operationId)
+              .then((operation) => {
+                setResult(operation.result ?? operation.error);
+                setProgress(
+                  operation.events
+                    .filter((event) => event.event === "progress")
+                    .map((event) => JSON.stringify(event.payload)),
+                );
+                setMessage(`Durable execution state: ${operation.status}. Reconnecting…`);
+              })
+              .catch(() => undefined);
+          },
+        });
+        connection.current = client;
+        setActiveExecution({ apiBaseUrl, operationId, requestId });
+        setExecutionPending(false);
+        client.start();
+      })
+      .catch((error: unknown) => {
+        setExecutionPending(false);
+        setActiveExecution(null);
+        setMessage(errorMessage(error));
+      });
+  };
+
+  const cancelActiveExecution = () => {
+    const active = activeExecution;
+    if (active === null) return;
+    void cancelExecutionOperation(active.apiBaseUrl, active.operationId)
+      .then((cancellation) => {
+        if (!("dispatchGrant" in cancellation)) {
+          setResult(cancellation.result ?? cancellation.error);
+          setMessage(`Durable execution state: ${cancellation.status}.`);
+          setActiveExecution(null);
+          pendingCancellation.current = null;
+          connection.current?.stop();
+          return;
+        }
+        const cancellationFrame: ConnectOperationCancel = {
+          type: "operation.cancel",
+          operationId: active.operationId,
+          requestId: active.requestId,
+          dispatchGrant: cancellation.dispatchGrant,
+          reason: "Cancelled from Glass mobile",
+        };
+        const accepted = connection.current?.send(cancellationFrame);
+        if (!accepted) pendingCancellation.current = cancellationFrame;
+        setMessage(
+          accepted
+            ? "Cancellation sent. Waiting for the durable terminal result."
+            : "Cancellation is durable in Glass Cloud and will reconcile when execution reconnects.",
+        );
+      })
+      .catch((error: unknown) => setMessage(errorMessage(error)));
+  };
   useEffect(() => {
     if (projectId === null && projects[0] !== undefined) setProjectId(projects[0].id);
   }, [projectId, projects]);
@@ -768,7 +981,10 @@ const ExecutionCard = ({
                   <ActionButton
                     key={binding.id}
                     label={`${binding.displayName}${binding.id === selectedWorkspaceId ? " · selected" : ""}`}
-                    onPress={() => setSelectedWorkspaceId(binding.id)}
+                    onPress={() => {
+                      setSelectedEnvironmentId(item.id);
+                      setSelectedWorkspaceId(binding.id);
+                    }}
                   />
                 ))}
                 <ActionButton
@@ -799,128 +1015,34 @@ const ExecutionCard = ({
                         .then(() => listWorkspaceBindings(apiBaseUrl, organizationId, projectId))
                         .then((items) => {
                           setBindings(items);
+                          setSelectedEnvironmentId(item.id);
                           setSelectedWorkspaceId(workspace.id);
                         })
                         .catch((error: unknown) => setMessage(errorMessage(error)));
                     }}
                   />
                 ))}
-                <ActionButton
-                  disabled={!online.has(item.id) || organizationId === null}
-                  label="Connect"
-                  onPress={() => {
-                    if (organizationId === null || projectId === null) return;
-                    const binding =
-                      environmentBindings.find(
+                {selectedEnvironmentId === item.id
+                  ? (() => {
+                      const binding = environmentBindings.find(
                         (candidate) => candidate.id === selectedWorkspaceId,
-                      ) ?? environmentBindings[0];
-                    if (binding === undefined) {
-                      setMessage(
-                        "An administrator must bind an advertised workspace to this project first.",
                       );
-                      return;
-                    }
-                    const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
-                    const operationId = randomUUID() as ExecutionOperationId;
-                    const requestId = randomUUID();
-                    void createFileList(
-                      apiBaseUrl,
-                      organizationId,
-                      item.id,
-                      projectId,
-                      binding.id,
-                      operationId,
-                      requestId,
-                    )
-                      .then((dispatch) => {
-                        connection.current?.stop();
-                        let dispatched = false;
-                        const client = new GlassConnectClient({
-                          environmentIdentity: {
-                            id: item.id,
-                            keyVersion: item.keyVersion,
-                            organizationId: item.organizationId,
-                            publicKey: item.publicKey,
-                          },
-                          getTicket: (clientNonce) =>
-                            authorizeEnvironmentConnection(
-                              apiBaseUrl,
-                              organizationId,
-                              item.id,
-                              clientNonce,
-                            ),
-                          makeSocket: (ticket) =>
-                            new WebSocket(ticket.websocketUrl, [
-                              "glass-connect-v2",
-                              `glass-ticket.${ticket.ticket}`,
-                            ]) as unknown as ClientConnectSocket,
-                          onFrame: (frame) => {
-                            if (frame.type === "operation.error") setMessage(frame.error.message);
-                            else if (frame.event === "progress")
-                              setMessage("The execution node is streaming progress.");
-                            else {
-                              setResult(frame.payload);
-                              setMessage("Authorized workspace listing completed.");
-                            }
-                          },
-                          onOnline: () => {
-                            void (async () => {
-                              if (dispatched) {
-                                const durable = await loadExecutionOperation(
-                                  apiBaseUrl,
-                                  operationId,
-                                );
-                                if (["succeeded", "failed", "cancelled"].includes(durable.status)) {
-                                  setResult(durable.result ?? durable.error);
-                                  setMessage(`Durable execution state: ${durable.status}.`);
-                                  client.stop();
-                                  return;
-                                }
-                                setMessage(
-                                  `Durable execution state: ${durable.status}. Waiting for node reconciliation without redispatching side effects.`,
-                                );
-                                return;
-                              }
-                              dispatched = client.send({
-                                type: "operation.request",
-                                requestId,
-                                operationId,
-                                capability: "file.list",
-                                dispatchGrant: dispatch.dispatchGrant,
-                                payload: {
-                                  operation: "file.list",
-                                  workspaceId: binding.id,
-                                  path: ".",
-                                },
-                              });
-                              if (dispatched)
-                                setMessage(
-                                  "Connected through Glass Connect. Listing the authorized workspace root…",
-                                );
-                            })().catch((error: unknown) => setMessage(errorMessage(error)));
-                          },
-                          onStatus: (status) => {
-                            if (status.status === "reconnecting") {
-                              setMessage(
-                                "Execution is reconnecting. Cloud product access remains available.",
-                              );
-                              void loadExecutionOperation(apiBaseUrl, operationId)
-                                .then((operation) => {
-                                  setResult(operation.result ?? operation.error);
-                                  setMessage(
-                                    `Durable execution state: ${operation.status}. Reconnecting…`,
-                                  );
-                                })
-                                .catch(() => undefined);
-                            }
-                          },
-                        });
-                        connection.current = client;
-                        client.start();
-                      })
-                      .catch((error: unknown) => setMessage(errorMessage(error)));
-                  }}
-                />
+                      return binding === undefined ? (
+                        <Text style={styles.muted}>
+                          Select a project-authorized workspace to use execution capabilities.
+                        </Text>
+                      ) : (
+                        <MobileExecutionConsole
+                          active={activeExecution !== null}
+                          disabled={
+                            executionPending || !online.has(item.id) || organizationId === null
+                          }
+                          onCancel={cancelActiveExecution}
+                          onRun={(draft) => startExecution(item, binding, draft)}
+                        />
+                      );
+                    })()
+                  : null}
                 <ActionButton
                   disabled={trustActionPending}
                   label="Revoke"
@@ -942,6 +1064,14 @@ const ExecutionCard = ({
           })
       )}
       {message === null ? null : <Text style={styles.muted}>{message}</Text>}
+      {progress.length === 0 ? null : (
+        <View style={styles.executionOutput}>
+          <Text style={styles.label}>Streaming output · latest {progress.length} line(s)</Text>
+          <Text selectable style={styles.muted}>
+            {progress.join("")}
+          </Text>
+        </View>
+      )}
       {result === null ? null : (
         <Text selectable style={styles.muted}>
           {JSON.stringify(result, null, 2)}
@@ -1662,12 +1792,11 @@ const styles = StyleSheet.create({
   buttonText: { color: "#b9f2d8", fontSize: 15, fontWeight: "700" },
   buttonDisabled: { opacity: 0.55 },
   connectionRow: {
-    alignItems: "center",
+    alignItems: "stretch",
     borderColor: "#2b3a35",
     borderRadius: 16,
     borderWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 8,
     marginTop: 16,
     padding: 18,
   },
@@ -1681,6 +1810,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   error: { color: "#ffaaa3", fontSize: 14, lineHeight: 21, marginTop: 8 },
+  executionOutput: {
+    backgroundColor: "#0c1212",
+    borderColor: "#2b3a35",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 12,
+    maxHeight: 280,
+    padding: 12,
+  },
   eyebrow: { color: "#8de0bd", fontSize: 12, fontWeight: "700", letterSpacing: 2 },
   input: {
     backgroundColor: "#0c1212",

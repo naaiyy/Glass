@@ -4,9 +4,7 @@
 
 Environment authentication establishes which registered execution node is connecting. Authorization separately establishes which organization, project, workspace, and capabilities it may access. Network reachability, pairing state, or possession of a WebSocket URL is not sufficient authority.
 
-## Implemented trust boundary
-
-Milestone 4 implements:
+## Trust boundary
 
 - real Glass Cloud user authentication for pairing approval
 - a unique environment key protected by the execution environment
@@ -63,18 +61,16 @@ managed tunnel and DNS record.
 
 Pairing is the trust operation within publishing; it is not SSH, a tunnel, or another transport. Network setup occurs through Glass Connect only after trust has been established.
 
-## Current status
-
 Environment registration, pairing approval, proof of possession, credential exchange, listing,
 rotation, revocation, and security auditing are implemented and covered by focused contract, API,
 schema, and node-identity tests. The committed migration adds the durable environment identity and
-security-event tables. This implementation has not yet been deployed or manually verified in
-production, so documentation does not claim operational production publishing.
+security-event tables. Production publishing, credential exchange, two-key rotation, revocation,
+and idempotent recovery after a lost completion response have passed live verification.
 
 Cloudflare Rate Limit bindings protect unauthenticated trust mutations and polling independently.
 Mutations allow 20 requests per minute per Cloudflare client IP and API host. Status polling allows
 120 requests per minute so the node's two-second polling interval remains viable. Exhausted limits
-return `429` with `Retry-After: 60`; a deployed Worker without either required binding fails closed.
+return `429` with `Retry-After: 60`; a deployed Worker without a required binding fails closed.
 
 ## Source map
 

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
+  beginKeyRotation,
   createNodeIdentity,
   finishKeyRotation,
   loadNodeIdentity,
@@ -62,6 +63,51 @@ describe("execution environment identity", () => {
         Buffer.from(signChallenge(identity, challenge), "base64url"),
       ),
     ).toBe(true);
+  });
+
+  it("authenticates the node challenge used for key rotation", async () => {
+    const base = createNodeIdentity("https://glass.example.test");
+    const credential = {
+      credentialId: "44444444-4444-4444-8444-444444444444",
+      environmentId: environment.id,
+      organizationId: environment.organizationId,
+      token: "environment-credential",
+      scopes: ["connect:node"],
+      expiresAt: "2030-01-01T00:00:00.000Z",
+    } as const;
+    const identity = stageKeyRotation({
+      ...base,
+      environment: environment as never,
+      credential: credential as never,
+    });
+    const authorizations: Array<string | null> = [];
+    let requestNumber = 0;
+    vi.stubGlobal("fetch", async (_input: unknown, init?: RequestInit) => {
+      requestNumber += 1;
+      authorizations.push(new Headers(init?.headers).get("authorization"));
+      if (requestNumber === 1)
+        return Response.json({
+          challengeId: "55555555-5555-4555-8555-555555555555",
+          challenge: "glass-connect-node-challenge-v1\nproof",
+          expiresAt: "2030-01-01T00:00:00.000Z",
+        });
+      if (requestNumber === 2)
+        return Response.json({
+          rotationId: "66666666-6666-4666-8666-666666666666",
+          rotationCode: "ABCDE-FGHIJ",
+          pollingToken: "p".repeat(43),
+          approvalPath: "/#glass-connect-rotate",
+          expiresAt: "2030-01-01T00:00:00.000Z",
+        });
+      throw new Error("unexpected request");
+    });
+
+    await beginKeyRotation(identity);
+
+    expect(authorizations).toEqual([
+      "Bearer environment-credential",
+      "Bearer environment-credential",
+    ]);
   });
 
   it("retains the active key and a durable staged replacement when Cloud completion fails", async () => {

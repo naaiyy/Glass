@@ -21,6 +21,7 @@ import type {
   ProjectId,
   WorkspaceId,
 } from "@glass/contracts/ids";
+import type { ExecutionRequest } from "@glass/contracts/execution";
 import type { DecodeResult } from "@glass/contracts/validation";
 
 import { mobileAuthenticatedFetch } from "./auth-client.ts";
@@ -159,7 +160,7 @@ export const bindWorkspace = (
     }),
     decodeWorkspaceBinding,
   );
-export const createFileList = (
+export const createExecutionOperation = (
   apiBaseUrl: string,
   organizationId: OrganizationId,
   environmentId: ExecutionEnvironmentId,
@@ -167,6 +168,7 @@ export const createFileList = (
   workspaceId: WorkspaceId,
   operationId: ExecutionOperationId,
   requestId: string,
+  executionRequest: ExecutionRequest,
 ) =>
   decoded(
     request(apiBaseUrl, "/v1/execution-operations", "POST", {
@@ -176,7 +178,7 @@ export const createFileList = (
       workspaceId,
       operationId,
       requestId,
-      request: { operation: "file.list", workspaceId, path: "." },
+      request: executionRequest,
     }),
     decodeExecutionDispatch,
   );
@@ -191,5 +193,10 @@ export const redispatchExecutionOperation = (
 ) =>
   decoded(
     request(apiBaseUrl, `/v1/execution-operations/${operationId}/dispatch`, "POST"),
+    decodeExecutionDispatchOrOperation,
+  );
+export const cancelExecutionOperation = (apiBaseUrl: string, operationId: ExecutionOperationId) =>
+  decoded(
+    request(apiBaseUrl, `/v1/execution-operations/${operationId}/cancel`, "POST"),
     decodeExecutionDispatchOrOperation,
   );

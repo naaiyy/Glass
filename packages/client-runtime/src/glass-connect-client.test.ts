@@ -222,6 +222,45 @@ describe("Glass Connect client", () => {
     client.stop();
   });
 
+  it("accepts a Cloud-authorized cancellation on a reconnected client", async () => {
+    const socket = new FakeSocket();
+    const frames: unknown[] = [];
+    const client = new GlassConnectClient({
+      environmentIdentity,
+      getTicket: async (nonce) => {
+        latestNonce = nonce;
+        return ticket("ticket");
+      },
+      makeSocket: () => socket,
+      now: () => Date.parse("2029-01-01T00:00:00.000Z"),
+      onFrame: (frame) => frames.push(frame),
+      verifyWelcome: async () => true,
+    });
+    client.start();
+    await Promise.resolve();
+    socket.emit("open");
+    await authenticate(socket);
+    expect(
+      client.send({
+        type: "operation.cancel",
+        requestId: "original-request",
+        operationId: "original-operation",
+        dispatchGrant: "g".repeat(32),
+        reason: "Cancelled after reconnect.",
+      }),
+    ).toBe(true);
+    socket.message(
+      JSON.stringify({
+        type: "operation.error",
+        requestId: "original-request",
+        operationId: "original-operation",
+        error: { code: "EXECUTION_CANCELLED", message: "Cancelled.", retryable: false },
+      }),
+    );
+    expect(frames).toHaveLength(1);
+    client.stop();
+  });
+
   it("bounds active request correlations", async () => {
     const socket = new FakeSocket();
     const client = new GlassConnectClient({

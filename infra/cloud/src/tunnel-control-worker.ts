@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import { glassCloudProductionStage } from "./environments.ts";
+import { tunnelRequiresDeletion } from "./tunnel-cleanup.ts";
 
 export type TunnelControlShape = {
   provision: (input: {
@@ -157,7 +158,7 @@ export default TunnelControlWorker.make(
               tunnel.accountTag !== accountId
             )
               return yield* Effect.die("Tunnel ownership verification failed.");
-            yield* tunnels.delete(tunnelId);
+            if (tunnelRequiresDeletion(tunnel)) yield* tunnels.delete(tunnelId);
           }).pipe(Effect.catchTag("TunnelNotFound", () => Effect.void));
         }),
       token: (tunnelId) => tunnels.getToken(tunnelId),

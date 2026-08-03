@@ -22,10 +22,10 @@ Glass Cloud stores the environment registry, pairing records, and durable execut
 
 A node advertises supported capability identifiers and protocol compatibility. Advertisement is descriptive, not authorization. Every requested operation also requires an authenticated node, a scoped grant, a permitted project/environment/workspace association, and contract validation.
 
-Environment identity and publishing are implemented independently of machine capabilities. The
-repository implements filesystem access, terminal/process management, Git, checkpoints, and remote
-dispatch behind typed capability grants. Production availability remains a separate deployment and
-live-verification gate.
+Environment identity and publishing are implemented independently of machine capabilities.
+Filesystem access, terminal/process management, Git, checkpoints, streaming, cancellation, and
+remote dispatch run behind typed capability grants. Web, desktop, and native mobile expose these
+capabilities only for an authorized project/workspace binding and online environment.
 
 ## Process boundary
 

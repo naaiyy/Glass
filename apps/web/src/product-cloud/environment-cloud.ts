@@ -16,6 +16,8 @@ import {
   decodeWorkspaceBindingList,
 } from "@glass/contracts/execution-cloud";
 import type { ExecutionOperationId, ProjectId, WorkspaceId } from "@glass/contracts/ids";
+import type { ExecutionRequest } from "@glass/contracts/execution";
+import type { ExecutionDispatch, ExecutionOperation } from "@glass/contracts/execution-cloud";
 import type { DecodeResult } from "@glass/contracts/validation";
 
 type Method = "DELETE" | "GET" | "POST";
@@ -134,13 +136,14 @@ export const environmentCloud = {
       }),
       decodeWorkspaceBinding,
     ),
-  createFileList: (
+  createOperation: (
     organizationId: OrganizationId,
     environmentId: ExecutionEnvironmentId,
     projectId: ProjectId,
     workspaceId: WorkspaceId,
     operationId: ExecutionOperationId,
     requestId: string,
+    executionRequest: ExecutionRequest,
   ) =>
     decoded(
       request("/v1/execution-operations", "POST", {
@@ -150,13 +153,13 @@ export const environmentCloud = {
         workspaceId,
         operationId,
         requestId,
-        request: { operation: "file.list", workspaceId, path: "." },
+        request: executionRequest,
       }),
       decodeExecutionDispatch,
     ),
-  operation: (operationId: ExecutionOperationId) =>
+  operation: (operationId: ExecutionOperationId, after = -1) =>
     decoded(
-      request(`/v1/execution-operations/${operationId}?after=-1&limit=100`, "GET"),
+      request(`/v1/execution-operations/${operationId}?after=${after}&limit=500`, "GET"),
       decodeExecutionOperation,
     ),
   redispatch: (operationId: ExecutionOperationId) =>
@@ -164,4 +167,22 @@ export const environmentCloud = {
       request(`/v1/execution-operations/${operationId}/dispatch`, "POST"),
       decodeExecutionDispatchOrOperation,
     ),
+  cancel: async (
+    operationId: ExecutionOperationId,
+  ): Promise<Readonly<{ dispatchGrant: string | null; operation: ExecutionOperation }>> => {
+    const value = await request(`/v1/execution-operations/${operationId}/cancel`, "POST");
+    if (typeof value !== "object" || value === null || !("operation" in value)) {
+      throw new Error("Glass Cloud returned a malformed cancellation response.");
+    }
+    if ("dispatchGrant" in value && value.dispatchGrant === null) {
+      const operation = decodeExecutionOperation(value.operation);
+      if (!operation.ok)
+        throw new Error("Glass Cloud returned a malformed terminal cancellation response.");
+      return { dispatchGrant: null, operation: operation.value };
+    }
+    const dispatch = decodeExecutionDispatch(value);
+    if (!dispatch.ok)
+      throw new Error("Glass Cloud returned a malformed cancellation dispatch response.");
+    return dispatch.value satisfies ExecutionDispatch;
+  },
 };

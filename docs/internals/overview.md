@@ -27,24 +27,24 @@ the current editing session available for explicit retry.
 
 ## Implemented boundary
 
-Milestones 0 through 2 supply runnable application and package boundaries, real Glass Cloud
-authentication, deployed cloud infrastructure, and the durable database connection. Milestone 3
+Runnable application and package boundaries, real Glass Cloud authentication, deployed cloud
+infrastructure, and the durable database connection supply the product foundation. Glass Cloud
 adds organization-scoped product state, transactional change events, synchronization, and
 device-owned outbox behavior. Its migrations, routes, shared web renderer, and GitHub authentication
 entry are deployed in development, staging, and production; the production web authentication and
 product-only flow have passed live verification.
 
-Milestone 4 supplies durable organization-owned execution-environment identities, explicit
+Environment trust supplies durable organization-owned execution-environment identities, explicit
 administrator approval, environment-held Ed25519 proof, short-lived proof-bound credentials, key
 rotation, revocation, and append-only security audit events. The web renderer exposes approval,
 listing, and revocation; the execution node owns its private identity and performs the pairing proof.
-Milestones 5 and 6 add the managed outbound per-environment Cloudflare Tunnel, authenticated presence and workspace
+Glass Connect and the execution runtime add the managed outbound per-environment Cloudflare Tunnel, authenticated presence and workspace
 discovery, generation-bound one-time connection tickets, typed dispatch, durable operation intent
 and results, files, commands, terminal/PTY, Git, checkpoints, streaming, reconnect, and bounded
 cancellation. The execution data path is direct from a client through the proxied tunnel hostname to
 the node's loopback origin; Glass Cloud remains the control plane and durable authority. These
-implementations are not operational in production until an active DNS zone, credentials,
-migrations, deployment, and live end-to-end verification are complete.
+paths are deployed in development, staging, and production and have passed live production trust,
+tunnel, direct WebSocket, durable-result, rotation, and cleanup verification.
 
 The web client initiates GitHub authentication directly against Better Auth on the same deployed
 Worker origin. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
@@ -53,8 +53,8 @@ session material remains in the main process, and an allowlisted IPC adapter per
 product requests without exposing cookies to the renderer. No surface substitutes a local identity
 or pre-seeded credential.
 
-Production-ready multi-user chat and product experiences, deployed execution verification, and
-releases remain later gates. Glass Connect is the only initial execution transport; SSH launch,
+Production-ready multi-user chat and product experiences and releases remain later gates. Glass
+Connect is the only initial execution transport; SSH launch,
 direct LAN endpoints, Tailscale-specific transport, user-managed tunnels, and manually entered
 execution URLs are not initial paths. Editor
 collaboration is not implemented by Glass at a later milestone; OpenEditor owns that capability.

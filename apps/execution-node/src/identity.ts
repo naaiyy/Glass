@@ -1,4 +1,3 @@
-import { decodeConnectTicket, type ConnectTicket } from "@glass/contracts/connect";
 import {
   decodeBeginEnvironmentPairingResponse,
   decodeBeginEnvironmentRotationResponse,
@@ -135,6 +134,7 @@ export const beginKeyRotation = async (
       organizationId: identity.environment.organizationId,
     },
     decodeEnvironmentIdentityChallenge,
+    identity.credential.token,
   );
   const rotation = await request(
     identity,
@@ -298,26 +298,4 @@ export const refreshCredential = async (
     decodeEnvironmentCredential,
   );
   return { ...identity, credential };
-};
-
-export const obtainNodeTicket = async (identity: StoredNodeIdentity): Promise<ConnectTicket> => {
-  if (identity.environment === null || identity.credential === null)
-    throw new Error("A published environment credential is required.");
-  const challenge = await request(
-    identity,
-    "/v1/connect/node-challenges",
-    { environmentId: identity.environment.id, organizationId: identity.environment.organizationId },
-    decodeEnvironmentIdentityChallenge,
-  );
-  return request(
-    identity,
-    "/v1/connect/node-tickets",
-    {
-      environmentId: identity.environment.id,
-      challengeId: challenge.challengeId,
-      signature: signChallenge(identity, challenge.challenge),
-    },
-    decodeConnectTicket,
-    identity.credential.token,
-  );
 };

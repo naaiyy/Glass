@@ -1,6 +1,6 @@
 # Glass Cloud infrastructure
 
-This workspace declares the Milestone 2 Cloudflare and PlanetScale foundation.
+This workspace declares the Cloudflare and PlanetScale foundation.
 Provider resources change only through an explicit Alchemy deployment.
 
 ## Conventions
@@ -95,5 +95,5 @@ zone-scoped DNS token. Secret values never appear in source or stack outputs. Ea
 After deployment, require an idempotent second plan, then publish a disposable environment and
 verify tunnel creation, proxied DNS, ingress-to-loopback configuration, direct cross-device
 WebSocket execution, durable result acknowledgement, reconnect, rotation, revocation, and provider
-cleanup. Until that live proof passes, the infrastructure graph is implemented but Glass Connect is
-not operational in that stage.
+cleanup. Production has passed this live provider and transport proof; repeat it after changes to
+trust, tunnels, DNS, connection authority, or durable execution delivery.

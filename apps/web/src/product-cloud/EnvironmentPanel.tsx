@@ -4,7 +4,8 @@ import {
   type ClientConnectSocket,
 } from "@glass/client-runtime/glass-connect-client";
 import type { ExecutionEnvironment } from "@glass/contracts/environments";
-import type { WorkspaceBinding } from "@glass/contracts/execution-cloud";
+import type { ExecutionRequest } from "@glass/contracts/execution";
+import type { ExecutionOperation, WorkspaceBinding } from "@glass/contracts/execution-cloud";
 import type {
   ExecutionEnvironmentId,
   ExecutionOperationId,
@@ -15,6 +16,13 @@ import type {
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { environmentCloud } from "./environment-cloud.ts";
+import { ExecutionConsole } from "./ExecutionConsole.tsx";
+
+type ConnectedScope = Readonly<{
+  binding: WorkspaceBinding;
+  environment: ExecutionEnvironment;
+  projectId: ProjectId;
+}>;
 
 export const EnvironmentPanel = ({
   organizationId,
@@ -37,8 +45,52 @@ export const EnvironmentPanel = ({
     Readonly<Record<string, readonly Readonly<{ id: WorkspaceId; name: string }>[]>>
   >({});
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<WorkspaceId | "">("");
-  const [operationResult, setOperationResult] = useState<unknown>(null);
+  const [connectedScope, setConnectedScope] = useState<ConnectedScope | null>(null);
+  const [executionOnline, setExecutionOnline] = useState(false);
+  const [operations, setOperations] = useState<readonly ExecutionOperation[]>([]);
   const connection = useRef<GlassConnectClient | null>(null);
+  const connectionOnline = useRef(false);
+  const trackedOperationIds = useRef<Set<ExecutionOperationId>>(new Set());
+  const fetchedSequence = useRef<Map<ExecutionOperationId, number>>(new Map());
+
+  const upsertOperation = useCallback((operation: ExecutionOperation) => {
+    if (["succeeded", "failed", "cancelled"].includes(operation.status)) {
+      trackedOperationIds.current.delete(operation.operationId);
+    } else {
+      trackedOperationIds.current.add(operation.operationId);
+    }
+    setOperations((current) => {
+      const existing = current.find((candidate) => candidate.operationId === operation.operationId);
+      const eventMap = new Map(
+        [...(existing?.events ?? []), ...operation.events].map((event) => [event.sequence, event]),
+      );
+      const merged = {
+        ...operation,
+        events: [...eventMap.values()].sort((a, b) => a.sequence - b.sequence),
+      };
+      return [
+        merged,
+        ...current.filter((candidate) => candidate.operationId !== operation.operationId),
+      ];
+    });
+  }, []);
+
+  const refreshOperation = useCallback(
+    async (operationId: ExecutionOperationId) => {
+      const durable = await environmentCloud.operation(
+        operationId,
+        fetchedSequence.current.get(operationId) ?? -1,
+      );
+      if (durable.events.length > 0) {
+        fetchedSequence.current.set(
+          operationId,
+          Math.max(...durable.events.map((event) => event.sequence)),
+        );
+      }
+      upsertOperation(durable);
+    },
+    [upsertOperation],
+  );
 
   const refresh = useCallback(async () => {
     const items = await environmentCloud.list(organizationId);
@@ -80,6 +132,15 @@ export const EnvironmentPanel = ({
     }
   }, []);
   useEffect(() => () => connection.current?.stop(), []);
+  useEffect(() => {
+    if (connectedScope === null) return;
+    const handle = window.setInterval(() => {
+      for (const operationId of trackedOperationIds.current) {
+        void refreshOperation(operationId).catch(() => undefined);
+      }
+    }, 1_500);
+    return () => window.clearInterval(handle);
+  }, [connectedScope, refreshOperation]);
 
   const approve = async (event: FormEvent) => {
     event.preventDefault();
@@ -133,18 +194,13 @@ export const EnvironmentPanel = ({
         throw new Error(
           "An organization administrator must bind an advertised workspace to this project first.",
         );
-      const operationId = crypto.randomUUID() as ExecutionOperationId;
-      const requestId = crypto.randomUUID();
-      const dispatch = await environmentCloud.createFileList(
-        organizationId,
-        environmentId,
-        projectId,
-        binding.id,
-        operationId,
-        requestId,
-      );
       connection.current?.stop();
-      let dispatched = false;
+      connectionOnline.current = false;
+      setExecutionOnline(false);
+      trackedOperationIds.current = new Set();
+      fetchedSequence.current = new Map();
+      setOperations([]);
+      setConnectedScope({ binding, environment, projectId });
       const client = new GlassConnectClient({
         environmentIdentity: {
           id: environment.id,
@@ -161,59 +217,64 @@ export const EnvironmentPanel = ({
           ]) as ClientConnectSocket,
         onFrame: (frame) => {
           if (frame.type === "operation.error") setMessage(frame.error.message);
-          else if (frame.event === "progress")
-            setMessage("The execution node is streaming workspace discovery progress.");
-          else {
-            setOperationResult(frame.payload);
-            setMessage("Authorized workspace discovery completed.");
-          }
+          void refreshOperation(frame.operationId as ExecutionOperationId).catch((error: unknown) =>
+            setMessage(
+              error instanceof Error
+                ? error.message
+                : "Could not refresh the durable execution operation.",
+            ),
+          );
         },
         onOnline: () => {
-          void (async () => {
-            if (dispatched) {
-              const durable = await environmentCloud.operation(operationId);
-              if (["succeeded", "failed", "cancelled"].includes(durable.status)) {
-                setOperationResult(durable.result ?? durable.error);
-                setMessage(`Durable execution state: ${durable.status}.`);
-                client.stop();
+          connectionOnline.current = true;
+          setExecutionOnline(true);
+          setMessage(
+            `Connected to ${environment.displayName} through Glass Connect. Machine capabilities are available for ${binding.displayName}.`,
+          );
+          // Only Cloud may decide that an unclaimed durable operation is dispatchable again.
+          // A running or terminal operation comes back without a grant and is never replayed.
+          void Promise.all(
+            [...trackedOperationIds.current].map(async (operationId) => {
+              const durable = await environmentCloud.redispatch(operationId);
+              if (!("dispatchGrant" in durable)) {
+                upsertOperation(durable);
                 return;
               }
-              setMessage(
-                `Durable execution state: ${durable.status}. Waiting for node journal reconciliation without redispatching side effects.`,
-              );
-              return;
-            }
-            dispatched = client.send({
-              type: "operation.request",
-              requestId,
-              operationId,
-              capability: "file.list",
-              dispatchGrant: dispatch.dispatchGrant,
-              payload: { operation: "file.list", workspaceId: binding.id, path: "." },
-            });
-            if (dispatched)
-              setMessage(
-                "Connected through Glass Connect. Loading the authorized workspace binding…",
-              );
-          })().catch((error: unknown) =>
-            setMessage(error instanceof Error ? error.message : "Execution reconnect failed."),
+              upsertOperation(durable.operation);
+              client.send({
+                type: "operation.request",
+                requestId: durable.operation.requestId,
+                operationId: durable.operation.operationId,
+                capability: durable.operation.request.operation,
+                dispatchGrant: durable.dispatchGrant,
+                payload: durable.operation.request,
+              });
+            }),
+          ).catch((error: unknown) =>
+            setMessage(
+              error instanceof Error
+                ? error.message
+                : "Could not reconcile durable operations after reconnecting.",
+            ),
           );
         },
         onStatus: (status) => {
-          if (status.status === "online") onConnectionStatus("online");
-          else if (status.status === "connecting" || status.status === "reconnecting") {
+          if (status.status === "online") {
+            connectionOnline.current = true;
+            setExecutionOnline(true);
+            onConnectionStatus("online");
+          } else if (status.status === "connecting" || status.status === "reconnecting") {
+            connectionOnline.current = false;
+            setExecutionOnline(false);
             onConnectionStatus("connecting");
             if (status.status === "reconnecting") {
               setMessage("Execution is reconnecting. Product access remains available.");
-              void environmentCloud
-                .operation(operationId)
-                .then((operation) => {
-                  setOperationResult(operation.result ?? operation.error);
-                  setMessage(`Durable execution state: ${operation.status}. Reconnecting…`);
-                })
-                .catch(() => undefined);
             }
-          } else if (status.status === "stopped") onConnectionStatus("not-configured");
+          } else if (status.status === "stopped") {
+            connectionOnline.current = false;
+            setExecutionOnline(false);
+            onConnectionStatus("not-configured");
+          }
         },
       });
       connection.current = client;
@@ -223,6 +284,62 @@ export const EnvironmentPanel = ({
     } finally {
       setBusy(false);
     }
+  };
+
+  const runOperation = async (request: ExecutionRequest) => {
+    const scope = connectedScope;
+    const client = connection.current;
+    if (scope === null || client === null || !connectionOnline.current) {
+      throw new Error("Connect an online execution environment before running a capability.");
+    }
+    if (!("workspaceId" in request) || request.workspaceId !== scope.binding.id) {
+      throw new Error("The request is outside the connected workspace binding.");
+    }
+    const operationId = crypto.randomUUID() as ExecutionOperationId;
+    const requestId = crypto.randomUUID();
+    const dispatch = await environmentCloud.createOperation(
+      organizationId,
+      scope.environment.id,
+      scope.projectId,
+      scope.binding.id,
+      operationId,
+      requestId,
+      request,
+    );
+    upsertOperation(dispatch.operation);
+    const sent = client.send({
+      type: "operation.request",
+      requestId,
+      operationId,
+      capability: request.operation,
+      dispatchGrant: dispatch.dispatchGrant,
+      payload: request,
+    });
+    if (!sent) {
+      throw new Error(
+        "The durable operation was created, but the execution connection changed before dispatch. Its queued state remains visible; reconnect before retrying.",
+      );
+    }
+    setMessage(`${request.operation} was durably authorized and dispatched.`);
+  };
+
+  const cancelOperation = async (operation: ExecutionOperation) => {
+    const cancelled = await environmentCloud.cancel(operation.operationId);
+    upsertOperation(cancelled.operation);
+    if (cancelled.dispatchGrant === null) return;
+    const sent = connection.current?.send({
+      type: "operation.cancel",
+      requestId: operation.requestId,
+      operationId: operation.operationId,
+      dispatchGrant: cancelled.dispatchGrant,
+      reason: "Cancelled by the signed-in user from the Glass execution console.",
+    });
+    if (sent !== true) {
+      throw new Error(
+        "Cancellation is durable in Glass Cloud, but the environment connection is offline. It will remain cancelling until delivery can complete.",
+      );
+    }
+    setMessage(`Cancellation requested for ${operation.capability}.`);
   };
 
   return (
@@ -281,7 +398,6 @@ export const EnvironmentPanel = ({
         ))}
       </select>
       {message === null ? null : <p role="status">{message}</p>}
-      {operationResult === null ? null : <pre>{JSON.stringify(operationResult, null, 2)}</pre>}
       {environments.length === 0 ? (
         <p>No execution environments are published to this organization.</p>
       ) : (
@@ -404,6 +520,12 @@ export const EnvironmentPanel = ({
                         .revoke(environment.id)
                         .then(() => {
                           connection.current?.stop();
+                          connectionOnline.current = false;
+                          setExecutionOnline(false);
+                          setConnectedScope(null);
+                          setOperations([]);
+                          trackedOperationIds.current = new Set();
+                          fetchedSequence.current = new Map();
                           return refresh();
                         })
                         .catch((error: unknown) =>
@@ -420,6 +542,16 @@ export const EnvironmentPanel = ({
             </article>
           );
         })
+      )}
+      {connectedScope === null ? null : (
+        <ExecutionConsole
+          binding={connectedScope.binding}
+          environmentName={connectedScope.environment.displayName}
+          online={executionOnline}
+          onCancel={cancelOperation}
+          onRun={runOperation}
+          operations={operations}
+        />
       )}
     </section>
   );

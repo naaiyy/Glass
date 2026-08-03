@@ -1,7 +1,6 @@
 # Remote access
 
-Remote access to an execution environment is implemented in the repository but is not yet a
-shipped production feature.
+Remote access to a published execution environment is available through Glass Connect.
 
 Cloud-owned projects, conversations, artifacts, and notes do not require an execution
 environment. Machine actions such as opening workspace files, running terminals or commands, using
@@ -23,5 +22,4 @@ tunnel URL or network location as authorization.
 
 When an execution connection drops, Glass reports that environment as unavailable. The product connection remains separate, and Glass does not silently connect to a different machine or pretend an interrupted action completed.
 
-The execution-node runbook contains maintainer setup and recovery instructions. This user page gains
-the final shipped onboarding flow after deployed cross-device verification.
+The execution-node runbook contains maintainer setup and recovery instructions.

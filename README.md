@@ -1,10 +1,9 @@
 # Glass
 
 Glass is an always-available cloud product with optional connections to execution environments.
-This clean-slate repository implements the architectural constitution, runnable monorepo, deployed
-Glass Cloud foundation, deployed Milestone 3 durable product core, and the repository implementation
-of environment identity, Glass Connect, and execution capabilities across five applications and six
-boundary-focused packages.
+This repository implements the architectural constitution, runnable monorepo, deployed Glass Cloud,
+durable product core, environment identity, Glass Connect, and execution capabilities across five
+applications and six boundary-focused packages.
 
 Milestone 3 adds organization-scoped durable product records, typed synchronization, and a
 device-owned offline outbox without making execution a product dependency. The shared web renderer,
@@ -12,12 +11,11 @@ Better Auth entry, and durable product API are deployed together in development,
 production and have passed live authentication verification. Environment publishing now uses
 durable organization-owned records, environment-held Ed25519 keys, explicit administrator
 approval, proof-bound short-lived credentials, rotation, revocation, and security audit events.
-The environment identity and execution paths have local automated coverage. Glass Connect now has a
-repository implementation for a remotely managed per-environment Cloudflare Tunnel, stage-scoped
-proxied DNS, a loopback node origin, direct client WebSockets, and durable dispatch/results. It is
-not operational in production until an active Cloudflare DNS zone and deployment credentials are
-configured, migrations and infrastructure are applied, and the cross-device flow passes live
-end-to-end verification.
+Environment publishing, proof-bound credentials, managed per-environment Cloudflare Tunnels,
+stage-scoped proxied DNS, a loopback node origin, direct client WebSockets, key rotation, and durable
+dispatch/results are deployed in development, staging, and production. The production path has
+passed live publishing, managed-tunnel, direct WebSocket, durable-result, rotation, and cleanup
+verification.
 Production-ready multi-user product experiences and releases remain later completion gates. Editor
 collaboration is not one of those Glass milestones:
 OpenEditor owns it, and Glass adopts it through a coordinated OpenEditor dependency update.

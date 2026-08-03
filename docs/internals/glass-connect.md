@@ -88,22 +88,15 @@ published under the same proof-bound node authority. Heartbeats expire to an hon
 - Interrupted work never becomes successful merely because transport accepted a frame. Cancellation
   and terminal errors remain explicit durable outcomes.
 
-## Current status
+## Operational status
 
-The repository contains the tunnel control plane, direct client transport, loopback node origin,
-connector supervision, proof-bound authority, durable dispatch and result acknowledgement, and
-cross-surface integrations. This statement is about repository implementation only. Production
-Glass Connect is not operational until all of the following are true:
-
-- an active Cloudflare DNS zone is selected and delegated;
-- stage-specific Cloudflare, PlanetScale, OAuth, ticket-signing, and DNS-zone configuration is
-  present with the required provider permissions;
-- the committed migrations and infrastructure plan are reviewed and deployed to each intended
-  stage;
-- tunnel creation, proxied DNS, connector startup, direct cross-device operations, reconnect,
-  rotation, revocation, cleanup, and durable result recovery pass live end-to-end verification.
-
-No local mock, quick tunnel, user-managed endpoint, or alternate transport satisfies those gates.
+The tunnel control plane, direct client transport, loopback node origin, connector supervision,
+proof-bound authority, durable dispatch and result acknowledgement, and web, desktop, and native
+mobile integrations are deployed. Development, staging, and production use the delegated
+`glassapp.dev` zone and isolated stage resources. Production has passed live tunnel creation,
+proxied DNS, connector startup, direct ticketed WebSocket execution, durable result recovery, key
+rotation, revocation, and provider cleanup. No local mock, quick tunnel, user-managed endpoint, or
+alternate transport is part of this path.
 
 ## Source map
 
@@ -116,4 +109,4 @@ No local mock, quick tunnel, user-managed endpoint, or alternate transport satis
 - Shared client connection state: `packages/client-runtime/src/glass-connect-client.ts`
 - Web and mobile integrations: `apps/web/src/product-cloud/`, `apps/mobile/src/`
 - Durable schema and migrations: `apps/api/src/db/schema.ts`, `infra/cloud/migrations/postgres/`
-- Cloudflare tunnel, DNS, authority, and Worker declarations: `infra/cloud/alchemy.run.ts`
+- Cloudflare tunnel, DNS, authority, and Worker declarations: `infra/cloud/alchemy.run.ts`, `infra/cloud/src/tunnel-control-worker.ts`

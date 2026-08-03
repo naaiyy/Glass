@@ -4,11 +4,11 @@
 
 ## Current status
 
-The repository implements durable environment registration, administrator approval, Ed25519 proof
+Production implements durable environment registration, administrator approval, Ed25519 proof
 of possession, short-lived scoped credential exchange, two-key rotation, revocation, and append-only
-security events. The repository also contains the managed tunnel lifecycle and direct execution
-protocol. This page does not claim that environment publishing or Glass Connect has been deployed
-or manually verified in production.
+security events, the managed tunnel lifecycle, and the direct execution protocol. The production
+path has passed live publishing, credential, rotation, managed-tunnel, direct WebSocket,
+durable-result, and cleanup verification.
 
 ## Required cloud bindings
 
@@ -22,6 +22,8 @@ Every deployed API Worker requires the normal Glass Cloud authentication and dat
   disconnect, and delete remotely managed tunnels and proxied DNS records in that zone
 - `TRUST_MUTATION_RATE_LIMIT`, configured for 20 requests per 60 seconds
 - `TRUST_POLL_RATE_LIMIT`, configured for 120 requests per 60 seconds
+- `CONNECT_NODE_RATE_LIMIT`, configured for 10,000 authenticated node-control requests per 60
+  seconds and keyed by environment and credential
 
 Before planning a Glass Connect deployment, the selected Cloudflare account must contain an active
 DNS zone with working delegation. The deployment identity must be able to deploy Workers, Durable
@@ -35,9 +37,10 @@ Each stage supplies its intended zone through `CONNECT_TUNNEL_ZONE_NAME`. Review
 hostnames and provider plan to confirm that development, staging, and production resources remain
 isolated.
 
-The rate-limit key is the Cloudflare-provided client IP combined with the API host. Pairing,
-credential, rotation, and node-ticket mutations use the lower limit. Pairing and rotation status
-polls use the separate higher limit. Each deployment stage uses deterministic, distinct Cloudflare
+Pairing, credential, and rotation mutations use the lower client-IP-and-host limit. Pairing and
+rotation status polls use the separate higher limit. Authenticated node challenges and control
+requests use the environment-and-credential limiter so durable result delivery cannot exhaust the
+public trust buckets. Each deployment stage uses deterministic, distinct Cloudflare
 rate-limit namespaces, so test traffic cannot consume production capacity. An exhausted limit
 returns `429` and `Retry-After: 60`; a
 missing binding makes public environment-trust routes fail closed with `503`.
@@ -50,7 +53,7 @@ notes.
 
 After reviewing and applying the committed migration chain and Cloudflare plan:
 
-1. Confirm both Rate Limit bindings, `CONNECT_AUTHORITY`, `TUNNEL_CONTROL`, the ticket secret,
+1. Confirm all three Rate Limit bindings, `CONNECT_AUTHORITY`, `TUNNEL_CONTROL`, the ticket secret,
    tunnel zone name, Hyperdrive, and Better Auth bindings are present on the deployed Worker.
    Confirm the selected DNS zone is active and delegated before publishing an environment.
 2. Publish a disposable execution environment. Verify the approval requires a real signed-in
@@ -93,7 +96,8 @@ step; deleting or signing out a client session is not a substitute.
 
 ## Source map
 
-- Cloud bindings, tunnel-control Worker, and DNS scope: `infra/cloud/alchemy.run.ts`
+- Cloud bindings and DNS scope: `infra/cloud/alchemy.run.ts`
+- Tunnel-control Worker: `infra/cloud/src/tunnel-control-worker.ts`
 - Trust routes and rate-limit enforcement: `apps/api/src/index.ts`
 - Durable trust service: `apps/api/src/environment-service.ts`
 - Schema and audit records: `apps/api/src/db/schema.ts`

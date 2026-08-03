@@ -125,15 +125,12 @@ export class GlassConnectClient {
     if (!this.authenticated || this.socket?.readyState !== openReadyState) return false;
     const expected = this.correlation.get(frame.requestId);
     if (expected !== undefined && expected !== frame.operationId) return false;
-    if (frame.type === "operation.cancel" && expected !== frame.operationId) return false;
-    if (
-      frame.type === "operation.request" &&
-      expected === undefined &&
-      this.correlation.size >= maxActiveConnectCorrelations
-    )
+    if (expected === undefined && this.correlation.size >= maxActiveConnectCorrelations)
       return false;
-    if (frame.type === "operation.request")
-      this.correlation.set(frame.requestId, frame.operationId);
+    // A cancellation grant may be issued to a newly connected client after the original
+    // dispatch socket disappeared. The scoped Cloud grant is the authority; retain a fresh
+    // correlation here so the terminal node acknowledgement can still be validated.
+    if (expected === undefined) this.correlation.set(frame.requestId, frame.operationId);
     this.socket.send(JSON.stringify(frame));
     return true;
   }
