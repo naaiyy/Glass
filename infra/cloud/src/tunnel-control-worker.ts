@@ -180,6 +180,7 @@ export default TunnelControlWorker.make(
     return {
       provision: (input) =>
         Effect.gen(function* () {
+          const providerAccountId = yield* tunnelProviderAccountId;
           const listed = yield* providerRequest<readonly ProviderTunnel[]>(
             `/cfd_tunnel?is_deleted=false&per_page=100&name=${encodeURIComponent(input.name)}`,
           );
@@ -195,13 +196,13 @@ export default TunnelControlWorker.make(
           const existing = matchingTunnels[0];
           if (existing !== undefined)
             console.log("Tunnel ownership metadata verified.", {
-              accountMatches: providerAccountMatches(existing, accountId),
+              accountMatches: providerAccountMatches(existing, providerAccountId),
               configurationIsRemote: providerConfigurationIsRemote(existing),
             });
           if (
             existing !== undefined &&
             (!providerConfigurationIsRemote(existing) ||
-              !providerAccountMatches(existing, accountId))
+              !providerAccountMatches(existing, providerAccountId))
           )
             return yield* Effect.die("Tunnel ownership verification failed.");
           const tunnel =
@@ -281,6 +282,7 @@ export default TunnelControlWorker.make(
         }).pipe(Effect.asVoid),
       delete: ({ dnsRecordId, ownershipId, tunnelId }) =>
         Effect.gen(function* () {
+          const providerAccountId = yield* tunnelProviderAccountId;
           const record = yield* dnsRequest<ProviderDnsRecord>(
             `/dns_records/${encodeURIComponent(dnsRecordId)}`,
             { allowNotFound: true },
@@ -301,7 +303,7 @@ export default TunnelControlWorker.make(
           if (
             tunnel.name !== `glass-${stage}-${ownershipId}` ||
             !providerConfigurationIsRemote(tunnel) ||
-            !providerAccountMatches(tunnel, accountId)
+            !providerAccountMatches(tunnel, providerAccountId)
           )
             return yield* Effect.die("Tunnel ownership verification failed.");
           if (tunnelRequiresDeletion({ deletedAt: tunnel.deleted_at ?? null }))
