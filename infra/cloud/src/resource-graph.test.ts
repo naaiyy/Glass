@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 const stackSource = readFileSync(new URL("../alchemy.run.ts", import.meta.url), "utf8");
+const tunnelControlSource = readFileSync(
+  new URL("./tunnel-control-worker.ts", import.meta.url),
+  "utf8",
+);
 
 describe("Glass Cloud Alchemy resource graph", () => {
   it("lets Alchemy generate provider resource names", () => {
@@ -45,7 +49,9 @@ describe("Glass Cloud Alchemy resource graph", () => {
     expect(stackSource).toContain("simple: { limit: 120, period: 60 }");
     expect(stackSource).toContain("originConnectionLimit: 20");
     expect(stackSource).toContain('flags: ["nodejs_compat"]');
-    expect(stackSource).toContain("main: import.meta.url");
+    expect(tunnelControlSource).toContain('flags: ["nodejs_compat"]');
+    expect(tunnelControlSource).toContain("main: import.meta.url");
+    expect(tunnelControlSource).not.toContain("alchemy/Planetscale");
     expect(stackSource).not.toContain("GLASS_STAGE");
     expect(stackSource).not.toContain("BETTER_AUTH_URL");
   });
