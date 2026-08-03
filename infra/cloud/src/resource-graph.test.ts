@@ -5,7 +5,7 @@ const stackSource = readFileSync(new URL("../alchemy.run.ts", import.meta.url), 
 
 describe("Glass Cloud Alchemy resource graph", () => {
   it("lets Alchemy generate provider resource names", () => {
-    expect(stackSource).not.toMatch(/\n\s+name:/u);
+    expect(stackSource).not.toMatch(/Postgres(?:Database|Branch|Role)\([^)]*\{[^}]*\bname:/su);
     expect(stackSource).toContain('PostgresDatabase("Database"');
     expect(stackSource).toContain('PostgresBranch("Branch"');
     expect(stackSource).toContain('PostgresRole("RuntimeRole"');
@@ -31,6 +31,12 @@ describe("Glass Cloud Alchemy resource graph", () => {
     expect(stackSource).not.toContain("Alchemy.makeRandom");
     expect(stackSource).toContain("BETTER_AUTH_SECRET: betterAuthSecret");
     expect(stackSource).toContain("HYPERDRIVE: hyperdrive");
+    expect(stackSource).toContain('Cloudflare.RateLimit("TrustMutationRateLimit"');
+    expect(stackSource).toContain('rateLimitNamespaceId(policy.stage, "mutation")');
+    expect(stackSource).toContain("simple: { limit: 20, period: 60 }");
+    expect(stackSource).toContain('Cloudflare.RateLimit("TrustPollRateLimit"');
+    expect(stackSource).toContain('rateLimitNamespaceId(policy.stage, "poll")');
+    expect(stackSource).toContain("simple: { limit: 120, period: 60 }");
     expect(stackSource).toContain("originConnectionLimit: 20");
     expect(stackSource).toContain('flags: ["nodejs_compat"]');
     expect(stackSource).not.toContain("GLASS_STAGE");

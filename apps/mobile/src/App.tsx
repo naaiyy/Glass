@@ -1,12 +1,18 @@
 import { createOutboxEngine, type OutboxEnvelope } from "@glass/client-runtime/outbox";
+import {
+  GlassConnectClient,
+  type ClientConnectSocket,
+} from "@glass/client-runtime/glass-connect-client";
 import { createSyncEngine } from "@glass/client-runtime/sync";
 import { loadProductSnapshot } from "@glass/client-runtime/snapshot";
 import type {
   ArtifactId,
   CommandId,
+  ExecutionOperationId,
   OrganizationId,
   ProjectId,
   UserId,
+  WorkspaceId,
 } from "@glass/contracts/ids";
 import { decodeId } from "@glass/contracts/ids";
 import type { NoteArtifact } from "@glass/contracts/product";
@@ -72,6 +78,21 @@ import {
   requiresResnapshot,
   resolveApiBaseUrl,
 } from "./cloud/transport.ts";
+import {
+  approveEnvironmentPairing,
+  approveEnvironmentRotation,
+  authorizeEnvironmentConnection,
+  bindWorkspace,
+  createFileList,
+  listEnvironments,
+  listWorkspaceBindings,
+  loadExecutionOperation,
+  loadEnvironmentPresence,
+  loadWorkspaceCatalog,
+  revokeEnvironment,
+} from "./cloud/environments.ts";
+import type { ExecutionEnvironment } from "@glass/contracts/environments";
+import type { WorkspaceBinding } from "@glass/contracts/execution-cloud";
 
 type RootStack = {
   Artifact: { artifactId: string };
@@ -571,15 +592,364 @@ const ActionButton = ({
   </Pressable>
 );
 
-const ExecutionCard = () => (
-  <View style={styles.connectionRow}>
-    <View>
-      <Text style={styles.label}>Execution connection</Text>
-      <Text style={styles.muted}>Optional and not configured</Text>
-    </View>
-    <Text style={styles.connectionStatus}>Separate</Text>
-  </View>
-);
+const ExecutionCard = ({
+  organizationId,
+  projects,
+}: {
+  organizationId: OrganizationId | null;
+  projects: readonly Readonly<{ id: ProjectId; name: string }>[];
+}) => {
+  const [environments, setEnvironments] = useState<readonly ExecutionEnvironment[]>([]);
+  const [online, setOnline] = useState<ReadonlySet<string>>(new Set());
+  const [message, setMessage] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<ProjectId | null>(projects[0]?.id ?? null);
+  const [bindings, setBindings] = useState<readonly WorkspaceBinding[]>([]);
+  const [catalog, setCatalog] = useState<
+    Readonly<Record<string, readonly Readonly<{ id: WorkspaceId; name: string }>[]>>
+  >({});
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<WorkspaceId | null>(null);
+  const [result, setResult] = useState<unknown>(null);
+  const [pairingCode, setPairingCode] = useState("");
+  const [rotationCode, setRotationCode] = useState("");
+  const [trustActionPending, setTrustActionPending] = useState(false);
+  const [environmentGeneration, setEnvironmentGeneration] = useState(0);
+  const connection = useRef<GlassConnectClient | null>(null);
+  useEffect(() => {
+    if (projectId === null && projects[0] !== undefined) setProjectId(projects[0].id);
+  }, [projectId, projects]);
+  useEffect(() => {
+    if (organizationId === null || projectId === null) {
+      setBindings([]);
+      return;
+    }
+    const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+    void listWorkspaceBindings(apiBaseUrl, organizationId, projectId)
+      .then(setBindings)
+      .catch((error: unknown) => setMessage(errorMessage(error)));
+  }, [organizationId, projectId]);
+  useEffect(() => {
+    if (organizationId === null) {
+      setEnvironments([]);
+      return;
+    }
+    let active = true;
+    const run = async () => {
+      const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+      const items = await listEnvironments(apiBaseUrl, organizationId);
+      const states = await Promise.all(
+        items
+          .filter((item) => item.revokedAt === null)
+          .map(
+            async (item) =>
+              [
+                item.id,
+                await loadEnvironmentPresence(apiBaseUrl, organizationId, item.id),
+              ] as const,
+          ),
+      );
+      if (active) {
+        setEnvironments(items);
+        setOnline(
+          new Set(states.filter((entry) => entry[1].status === "online").map((entry) => entry[0])),
+        );
+      }
+    };
+    void run().catch((error: unknown) => active && setMessage(errorMessage(error)));
+    return () => {
+      active = false;
+    };
+  }, [environmentGeneration, organizationId]);
+  useEffect(() => () => connection.current?.stop(), []);
+  return (
+    <StateCard title="Glass Connect">
+      <Text style={styles.muted}>
+        Signing in discovers published computers. Publishing remains an explicit action on a capable
+        computer.
+      </Text>
+      {organizationId === null ? null : (
+        <>
+          <Text style={styles.label}>Approve environment publishing</Text>
+          <TextInput
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={11}
+            onChangeText={setPairingCode}
+            placeholder="ABCDE-FGHIJ"
+            placeholderTextColor="#71817a"
+            style={styles.input}
+            value={pairingCode}
+          />
+          <ActionButton
+            disabled={trustActionPending || pairingCode.trim().length !== 11}
+            label={trustActionPending ? "Approving…" : "Approve publishing"}
+            onPress={() => {
+              const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+              setTrustActionPending(true);
+              void approveEnvironmentPairing(
+                apiBaseUrl,
+                organizationId,
+                pairingCode.trim().toUpperCase(),
+              )
+                .then(() => {
+                  setPairingCode("");
+                  setMessage(
+                    "Pairing approved. The execution environment is proving its identity.",
+                  );
+                  setEnvironmentGeneration((value) => value + 1);
+                })
+                .catch((error: unknown) => setMessage(errorMessage(error)))
+                .finally(() => setTrustActionPending(false));
+            }}
+          />
+          <Text style={styles.label}>Approve environment key rotation</Text>
+          <TextInput
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={11}
+            onChangeText={setRotationCode}
+            placeholder="ABCDE-FGHIJ"
+            placeholderTextColor="#71817a"
+            style={styles.input}
+            value={rotationCode}
+          />
+          <ActionButton
+            disabled={trustActionPending || rotationCode.trim().length !== 11}
+            label={trustActionPending ? "Approving…" : "Approve key rotation"}
+            onPress={() => {
+              const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+              setTrustActionPending(true);
+              void approveEnvironmentRotation(
+                apiBaseUrl,
+                organizationId,
+                rotationCode.trim().toUpperCase(),
+              )
+                .then(() => {
+                  setRotationCode("");
+                  setMessage(
+                    "Key rotation approved. The environment must now prove possession of its new key.",
+                  );
+                })
+                .catch((error: unknown) => setMessage(errorMessage(error)))
+                .finally(() => setTrustActionPending(false));
+            }}
+          />
+        </>
+      )}
+      <Text style={styles.label}>Project authorization</Text>
+      {projects.map((project) => (
+        <ActionButton
+          key={project.id}
+          label={`${project.name}${project.id === projectId ? " · selected" : ""}`}
+          onPress={() => setProjectId(project.id)}
+        />
+      ))}
+      {environments.length === 0 ? (
+        <Text style={styles.body}>No execution environments are published.</Text>
+      ) : (
+        environments
+          .filter((item) => item.revokedAt === null)
+          .map((item) => {
+            const environmentBindings = bindings.filter(
+              (binding) =>
+                binding.environmentId === item.id &&
+                binding.projectId === projectId &&
+                binding.revokedAt === null,
+            );
+            const environmentCatalog = catalog[item.id] ?? [];
+            return (
+              <View key={item.id} style={styles.connectionRow}>
+                <View>
+                  <Text style={styles.label}>{item.displayName}</Text>
+                  <Text style={styles.muted}>
+                    {item.platform} · {online.has(item.id) ? "online" : "offline"}
+                  </Text>
+                </View>
+                {environmentBindings.map((binding) => (
+                  <ActionButton
+                    key={binding.id}
+                    label={`${binding.displayName}${binding.id === selectedWorkspaceId ? " · selected" : ""}`}
+                    onPress={() => setSelectedWorkspaceId(binding.id)}
+                  />
+                ))}
+                <ActionButton
+                  disabled={!online.has(item.id) || organizationId === null}
+                  label="Load advertised workspaces"
+                  onPress={() => {
+                    if (organizationId === null) return;
+                    const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+                    void loadWorkspaceCatalog(apiBaseUrl, organizationId, item.id)
+                      .then((items) => setCatalog((current) => ({ ...current, [item.id]: items })))
+                      .catch((error: unknown) => setMessage(errorMessage(error)));
+                  }}
+                />
+                {environmentCatalog.map((workspace) => (
+                  <ActionButton
+                    key={workspace.id}
+                    label={`Bind ${workspace.name}`}
+                    onPress={() => {
+                      if (organizationId === null || projectId === null) return;
+                      const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+                      void bindWorkspace(
+                        apiBaseUrl,
+                        organizationId,
+                        item.id,
+                        projectId,
+                        workspace.id,
+                      )
+                        .then(() => listWorkspaceBindings(apiBaseUrl, organizationId, projectId))
+                        .then((items) => {
+                          setBindings(items);
+                          setSelectedWorkspaceId(workspace.id);
+                        })
+                        .catch((error: unknown) => setMessage(errorMessage(error)));
+                    }}
+                  />
+                ))}
+                <ActionButton
+                  disabled={!online.has(item.id) || organizationId === null}
+                  label="Connect"
+                  onPress={() => {
+                    if (organizationId === null || projectId === null) return;
+                    const binding =
+                      environmentBindings.find(
+                        (candidate) => candidate.id === selectedWorkspaceId,
+                      ) ?? environmentBindings[0];
+                    if (binding === undefined) {
+                      setMessage(
+                        "An administrator must bind an advertised workspace to this project first.",
+                      );
+                      return;
+                    }
+                    const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+                    const operationId = randomUUID() as ExecutionOperationId;
+                    const requestId = randomUUID();
+                    void createFileList(
+                      apiBaseUrl,
+                      organizationId,
+                      item.id,
+                      projectId,
+                      binding.id,
+                      operationId,
+                      requestId,
+                    )
+                      .then((dispatch) => {
+                        connection.current?.stop();
+                        let dispatched = false;
+                        const client = new GlassConnectClient({
+                          environmentIdentity: {
+                            id: item.id,
+                            keyVersion: item.keyVersion,
+                            organizationId: item.organizationId,
+                            publicKey: item.publicKey,
+                          },
+                          getTicket: (clientNonce) =>
+                            authorizeEnvironmentConnection(
+                              apiBaseUrl,
+                              organizationId,
+                              item.id,
+                              clientNonce,
+                            ),
+                          makeSocket: (ticket) =>
+                            new WebSocket(ticket.websocketUrl, [
+                              "glass-connect-v2",
+                              `glass-ticket.${ticket.ticket}`,
+                            ]) as unknown as ClientConnectSocket,
+                          onFrame: (frame) => {
+                            if (frame.type === "operation.error") setMessage(frame.error.message);
+                            else if (frame.event === "progress")
+                              setMessage("The execution node is streaming progress.");
+                            else {
+                              setResult(frame.payload);
+                              setMessage("Authorized workspace listing completed.");
+                            }
+                          },
+                          onOnline: () => {
+                            void (async () => {
+                              if (dispatched) {
+                                const durable = await loadExecutionOperation(
+                                  apiBaseUrl,
+                                  operationId,
+                                );
+                                if (["succeeded", "failed", "cancelled"].includes(durable.status)) {
+                                  setResult(durable.result ?? durable.error);
+                                  setMessage(`Durable execution state: ${durable.status}.`);
+                                  client.stop();
+                                  return;
+                                }
+                                setMessage(
+                                  `Durable execution state: ${durable.status}. Waiting for node reconciliation without redispatching side effects.`,
+                                );
+                                return;
+                              }
+                              dispatched = client.send({
+                                type: "operation.request",
+                                requestId,
+                                operationId,
+                                capability: "file.list",
+                                dispatchGrant: dispatch.dispatchGrant,
+                                payload: {
+                                  operation: "file.list",
+                                  workspaceId: binding.id,
+                                  path: ".",
+                                },
+                              });
+                              if (dispatched)
+                                setMessage(
+                                  "Connected through Glass Connect. Listing the authorized workspace root…",
+                                );
+                            })().catch((error: unknown) => setMessage(errorMessage(error)));
+                          },
+                          onStatus: (status) => {
+                            if (status.status === "reconnecting") {
+                              setMessage(
+                                "Execution is reconnecting. Cloud product access remains available.",
+                              );
+                              void loadExecutionOperation(apiBaseUrl, operationId)
+                                .then((operation) => {
+                                  setResult(operation.result ?? operation.error);
+                                  setMessage(
+                                    `Durable execution state: ${operation.status}. Reconnecting…`,
+                                  );
+                                })
+                                .catch(() => undefined);
+                            }
+                          },
+                        });
+                        connection.current = client;
+                        client.start();
+                      })
+                      .catch((error: unknown) => setMessage(errorMessage(error)));
+                  }}
+                />
+                <ActionButton
+                  disabled={trustActionPending}
+                  label="Revoke"
+                  onPress={() => {
+                    const apiBaseUrl = resolveApiBaseUrl(process.env.EXPO_PUBLIC_GLASS_API_URL);
+                    setTrustActionPending(true);
+                    void revokeEnvironment(apiBaseUrl, item.id)
+                      .then(() => {
+                        connection.current?.stop();
+                        setMessage(`${item.displayName} was revoked.`);
+                        setEnvironmentGeneration((value) => value + 1);
+                      })
+                      .catch((error: unknown) => setMessage(errorMessage(error)))
+                      .finally(() => setTrustActionPending(false));
+                  }}
+                />
+              </View>
+            );
+          })
+      )}
+      {message === null ? null : <Text style={styles.muted}>{message}</Text>}
+      {result === null ? null : (
+        <Text selectable style={styles.muted}>
+          {JSON.stringify(result, null, 2)}
+        </Text>
+      )}
+    </StateCard>
+  );
+};
 
 type HomeProps = NativeStackScreenProps<RootStack, "Home"> &
   Readonly<{
@@ -822,7 +1192,10 @@ const HomeScreen = ({
         </StateCard>
       ) : null}
 
-      <ExecutionCard />
+      <ExecutionCard
+        organizationId={view.scope?.organizationId ?? null}
+        projects={snapshot?.projects ?? []}
+      />
 
       {authenticatedUserId === null ? null : (
         <ActionButton label="Sign out of Glass Cloud" onPress={() => runCloudAction(signOut())} />

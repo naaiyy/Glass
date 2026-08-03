@@ -7,7 +7,14 @@ import { Client } from "pg";
 
 import * as authSchema from "./db/schema.ts";
 import type { GlassAuthConfig } from "./env.ts";
+import type { GlassApiBindingInput } from "./env.ts";
 import { createPostgresProductService, type ProductService } from "./product-service.ts";
+import {
+  createPostgresEnvironmentService,
+  type EnvironmentService,
+} from "./environment-service.ts";
+import { createPostgresExecutionService, type ExecutionService } from "./execution-service.ts";
+import { createPostgresTunnelService, type TunnelService } from "./tunnel-service.ts";
 
 export type AuthSession = Readonly<{
   session: Readonly<{ id: string; userId: string }>;
@@ -18,12 +25,18 @@ export interface GlassAuthRuntime {
   handle(request: Request): Promise<Response>;
   getSession(headers: Headers): Promise<AuthSession | null>;
   product: ProductService;
+  environment?: EnvironmentService;
+  execution?: ExecutionService;
+  tunnel?: TunnelService;
   close(): Promise<void>;
 }
 
-export type GlassAuthRuntimeFactory = (config: GlassAuthConfig) => Promise<GlassAuthRuntime>;
+export type GlassAuthRuntimeFactory = (
+  config: GlassAuthConfig,
+  bindings?: GlassApiBindingInput,
+) => Promise<GlassAuthRuntime>;
 
-export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config) => {
+export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bindings) => {
   const client = new Client({
     connectionString: config.connectionString,
     connectionTimeoutMillis: 5_000,
@@ -56,10 +69,24 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config) =>
       },
     });
 
+    const execution = createPostgresExecutionService(client);
     return {
       handle: (request) => auth.handler(request),
       getSession: (headers) => auth.api.getSession({ headers }),
       product: createPostgresProductService(client),
+      environment: createPostgresEnvironmentService(client),
+      execution,
+      ...(bindings?.TUNNEL_CONTROL === undefined || config.tunnelZoneName === undefined
+        ? {}
+        : {
+            tunnel: createPostgresTunnelService(
+              client,
+              bindings.TUNNEL_CONTROL,
+              config.tunnelZoneName,
+              config.stage,
+              (grant, frame) => execution.recordNodeFrame(grant, frame),
+            ),
+          }),
       close: () => client.end(),
     };
   } catch (cause) {

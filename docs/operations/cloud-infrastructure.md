@@ -42,7 +42,16 @@ Each stage owns a data-only runtime role and a Cloudflare Hyperdrive connection.
 Hyperdrive query caching is disabled and its PlanetScale origin pool is capped
 at 20 connections per environment.
 The Worker receives `HYPERDRIVE`, Alchemy's deployment-stage metadata,
-`BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, and `GITHUB_CLIENT_SECRET`. Better
+`BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, the Glass Connect authority,
+tunnel-control service, tunnel zone name, ticket secret, and separate Cloudflare Rate Limit
+bindings for environment-trust mutations, polling, and authenticated node control. The
+tunnel-control service receives
+least-privilege runtime access for remotely managed tunnels and DNS records in the selected active
+zone. Alchemy's tunnel CRUD binding does not expose the official forced-connection cleanup API, so
+the private service has one additional account token scoped only to Cloudflare Tunnel Write. That
+credential is used only to delete active tunnel connections. This intentionally duplicates tunnel
+write authority; it adds no DNS or product authority, never leaves the private Worker, and must be
+rotated and audited with the generated tunnel binding token. Better
 Auth uses the stage to allow only the matching generated `workers.dev` host
 when resolving its OAuth base URL. Alchemy resolves each secret through `Config.redacted`
 and uploads it as a Cloudflare `secret_text` binding. Authentication routes
@@ -91,8 +100,10 @@ workflow maps them to Better Auth's standard runtime names. Production
 protection rules remain a GitHub authorization boundary rather than application
 code.
 
-CI uses a one-year Cloudflare account-owned token limited to Hyperdrive Write
-and Workers Scripts Write, plus a PlanetScale service token limited to database,
+CI uses a one-year Cloudflare account-owned token. Glass Connect deployment additionally requires
+the permissions needed to create the Worker graph, Durable Object, service binding, and the
+least-privilege runtime Tunnel/DNS token bindings; verify its exact scope before applying a plan.
+It also uses a PlanetScale service token limited to database,
 branch, and connection management for the retained production database. Rotate
 the Cloudflare token before August 2, 2027 and replace the corresponding secret
 in all three GitHub environments without changing binding names.
@@ -105,5 +116,7 @@ in all three GitHub environments without changing binding names.
 - Composed durable schema: `apps/api/src/db/schema.ts`
 - Committed migrations: `infra/cloud/migrations/postgres/`
 - Cloud application boundary: `apps/api/`
+- Managed tunnel lifecycle: `apps/api/src/tunnel-service.ts`
+- Proof/ticket authority: `apps/api/src/connect-authority.ts`
 - CI verification: `.github/workflows/`
 - Release readiness: `docs/operations/releases.md`

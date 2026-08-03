@@ -4,6 +4,11 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   account,
   artifacts,
+  environmentCredentials,
+  environmentIdentityChallenges,
+  environmentSecurityEvents,
+  environmentSecurityEventType,
+  executionEnvironments,
   messages,
   mutationReceipts,
   noteContents,
@@ -185,6 +190,72 @@ describe("durable product schema", () => {
       expect(columnNames(reference?.foreignColumns ?? [])).toEqual(foreignColumns);
     },
   );
+});
+
+describe("durable execution environment identity schema", () => {
+  it("binds environment identities to organizations and durable user approval", () => {
+    const environmentConfig = getTableConfig(executionEnvironments);
+    expect(executionEnvironments.organizationId.notNull).toBe(true);
+    expect(executionEnvironments.publicKey.notNull).toBe(true);
+    expect(executionEnvironments.keyVersion.notNull).toBe(true);
+    expect(
+      environmentConfig.indexes.find(
+        (index) => index.config.name === "execution_environments_public_key_unique",
+      )?.config.unique,
+    ).toBe(true);
+    expect(
+      environmentConfig.foreignKeys.some((key) => key.reference().foreignTable === organizations),
+    ).toBe(true);
+    expect(environmentConfig.foreignKeys.some((key) => key.reference().foreignTable === user)).toBe(
+      true,
+    );
+  });
+
+  it("stores only hashed pairing poll secrets and credential secrets", () => {
+    expect(environmentIdentityChallenges.pairingCodeHash.notNull).toBe(false);
+    expect(environmentIdentityChallenges.pollingTokenHash.notNull).toBe(false);
+    expect(environmentCredentials.secretHash.notNull).toBe(true);
+    expect("token" in environmentCredentials).toBe(false);
+    expect("pairingCode" in environmentIdentityChallenges).toBe(false);
+    expect("pollingToken" in environmentIdentityChallenges).toBe(false);
+  });
+
+  it("invalidates credentials against the environment key revision", () => {
+    expect(environmentCredentials.issuedKeyVersion.notNull).toBe(true);
+    const credentialConfig = getTableConfig(environmentCredentials);
+    expect(
+      credentialConfig.foreignKeys.find(
+        (key) => key.getName() === "environment_credentials_organization_environment_fk",
+      )?.onDelete,
+    ).toBe("cascade");
+    expect(credentialConfig.checks.map((constraint) => constraint.name)).toContain(
+      "environment_credentials_key_version_check",
+    );
+  });
+
+  it("keeps a bounded append-only security history without secret-shaped metadata", () => {
+    const config = getTableConfig(environmentSecurityEvents);
+    expect(environmentSecurityEvents.type.notNull).toBe(true);
+    expect(environmentSecurityEvents.correlationId.notNull).toBe(true);
+    expect(environmentSecurityEvents.metadata.notNull).toBe(true);
+    expect(environmentSecurityEvents.occurredAt.notNull).toBe(true);
+    expect(config.checks.map((constraint) => constraint.name)).toContain(
+      "environment_security_events_metadata_check",
+    );
+    expect(Object.keys(environmentSecurityEvents)).not.toEqual(
+      expect.arrayContaining(["token", "challenge", "signature", "publicKey"]),
+    );
+    expect(environmentSecurityEventType.enumValues).toEqual([
+      "pairing-requested",
+      "pairing-approved",
+      "pairing-completed",
+      "credential-issued",
+      "key-rotation-requested",
+      "key-rotation-approved",
+      "key-rotated",
+      "environment-revoked",
+    ]);
+  });
 });
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";

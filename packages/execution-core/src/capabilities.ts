@@ -1,4 +1,5 @@
 import { glassProtocolVersion, type ExecutionNodeDescriptor } from "@glass/contracts/architecture";
+import { executionCapabilities } from "@glass/contracts/execution";
 import { Effect } from "effect";
 
 export class ExecutionCapabilityUnavailable extends Error {
@@ -20,4 +21,11 @@ export const foundationExecutionDescriptor = (): ExecutionNodeDescriptor => ({
   status: "foundation",
 });
 
-export const readExecutionDescriptor = Effect.sync(foundationExecutionDescriptor);
+export const readyExecutionDescriptor = (): ExecutionNodeDescriptor => ({
+  kind: "execution-node",
+  protocolVersion: glassProtocolVersion,
+  capabilities: executionCapabilities,
+  status: "ready",
+});
+
+export const readExecutionDescriptor = Effect.sync(readyExecutionDescriptor);

@@ -12,6 +12,7 @@ This repository is a clean-slate implementation. Previous Glass codebases may be
 4. **Every boundary is authenticated, authorized, and typed.** Identity is never inferred from a hard-coded user, a client-supplied owner ID, a network location, or an execution process.
 5. **Durable state is honestly durable.** Required cloud state is not replaced by process memory, local storage, sample data, or a production-path mock.
 6. **All supported surfaces describe the same product.** Web, desktop, and mobile share contracts, domain language, and client runtime behavior. Desktop consumes the web renderer. Mobile is native and does not share DOM UI.
+7. **Glass Connect is the initial execution path.** A signed-in user explicitly publishes an execution environment to an organization. The node exposes a loopback-only origin through a Glass-provisioned, remotely managed per-environment Cloudflare Tunnel and stage-scoped proxied DNS name. Clients connect directly to that tunnel after obtaining scoped authority from Glass Cloud. SSH launch, direct LAN endpoints, Tailscale-specific transport, user-managed tunnels, and manually entered execution URLs are not supported initial paths.
 
 ## A small glossary
 
@@ -32,7 +33,8 @@ Use these terms consistently in code, contracts, documentation, and product copy
 - **execution session**: a bounded period in which Glass orchestrates work against an execution environment.
 - **capability**: an execution operation the node explicitly advertises and is authorized to perform.
 - **checkpoint**: execution-environment-owned recoverable workspace state.
-- **Glass Connect**: the future managed, authenticated path between Glass Cloud and an execution node. It is not implemented yet.
+- **publishing**: the user-facing action that explicitly registers and pairs an execution environment with an organization and makes it eligible to connect through Glass Connect. Signing in alone does not publish a device.
+- **Glass Connect**: the managed, authenticated path between Glass clients and a published execution environment. Glass Cloud controls discovery, trust, authorization, tunnel provisioning, and durable execution records; the execution data path runs directly from the client through the environment's outbound Cloudflare Tunnel to its loopback-only node origin.
 - **product connection**: the always-on client connection to Glass Cloud.
 - **execution connection**: the optional connection used for machine capabilities.
 
@@ -122,15 +124,18 @@ Before calling a product change complete, identify every applicable entry:
 ## Authentication and authorization
 
 - Glass Cloud authentication establishes a user session. Authorization is evaluated server-side for every protected resource and action.
+- Signing in makes cloud-owned state and already-authorized environments discoverable. It does not silently publish the current device or turn it into an execution environment.
+- Publishing is an explicit user action. On a capable computer it may be a single confirmation, but it creates a separate, revocable organization-to-environment trust relationship backed by an environment-held key.
 - The API never trusts user IDs, organization IDs, roles, or ownership claims merely because a client sent them.
 - Environment pairing creates a revocable relationship; it does not grant unlimited access to all projects or workspaces.
 - Execution credentials are scoped, short-lived where possible, audience-bound, and stored only by the runtime that requires them.
-- Glass Connect uses real user and environment authentication, scoped credentials, DPoP-style proof of possession, short-lived WebSocket tickets, and managed tunnels when that milestone is implemented.
+- Glass Connect uses real user and environment authentication, scoped credentials, DPoP-style proof of possession, one-time short-lived WebSocket tickets carried as an opaque subprotocol value, and remotely managed per-environment Cloudflare Tunnels. The node consumes authority with fresh proof before accepting a WebSocket, signs its welcome with its Ed25519 environment key, validates each durable dispatch before machine side effects, and waits for the cloud-owned result acknowledgement before considering a result delivered.
+- Tunnel reachability is not authority. The node origin is loopback-only, each public hostname is stage-scoped and proxied, and rotation or revocation invalidates stale authority and forces connector cleanup.
 - Secrets, provider credentials, session tokens, pairing secrets, and proof keys must not enter logs, URLs, analytics payloads, fixtures, or source control.
 - Desktop IPC uses an allowlisted preload API. Keep context isolation and renderer sandboxing enabled; do not expose raw Electron or Node APIs to the renderer.
 - If credentials, signing keys, external services, or authority are missing, ask for them or report the block. Do not replace the required behavior with a fake integration, hard-coded identity, silent fallback, or local-only substitute.
 
-Glass Cloud exposes only Better Auth-backed protected product endpoints; it never substitutes a fake login. See `docs/internals/environment-auth.md` for the separate future execution-environment trust model.
+Glass Cloud exposes only Better Auth-backed protected product endpoints; it never substitutes a fake login. See `docs/internals/environment-auth.md` for the separate execution-environment trust model.
 
 ## Development workflow
 

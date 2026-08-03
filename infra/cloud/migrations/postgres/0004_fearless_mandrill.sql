@@ -1,0 +1,4 @@
+ALTER TABLE "execution_operation_events" DROP CONSTRAINT "execution_operation_events_payload_size_check";--> statement-breakpoint
+ALTER TABLE "execution_operation_events" ADD CONSTRAINT "execution_operation_events_payload_size_check" CHECK (("execution_operation_events"."event" = 'progress' and octet_length("execution_operation_events"."payload"::text) <= 131072)
+        or ("execution_operation_events"."event" = 'result' and octet_length("execution_operation_events"."payload"::text) <= 1048576)
+        or ("execution_operation_events"."event" = 'error' and octet_length("execution_operation_events"."payload"::text) <= 16384));

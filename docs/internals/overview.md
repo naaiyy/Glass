@@ -20,7 +20,7 @@ the current editing session available for explicit retry.
 ## Runtime boundaries
 
 - `apps/api` is the always-on product authority at the Cloudflare Worker boundary. It never spawns local processes or accesses a user workspace.
-- `apps/execution-node` runs on an execution environment and advertises machine capabilities. The foundation exposes only a typed capability descriptor.
+- `apps/execution-node` runs on an execution environment, advertises its implemented machine capabilities, and handles typed operations through Glass Connect.
 - `packages/execution-core` contains execution domain/orchestration logic. It is not a running service.
 - `apps/web` and `apps/mobile` are product clients. `apps/desktop` hosts the same renderer as web and adds a secure Electron boundary.
 - `packages/contracts`, `packages/domain`, and `packages/client-runtime` carry typed behavior shared across surfaces without merging their platform responsibilities.
@@ -34,6 +34,18 @@ device-owned outbox behavior. Its migrations, routes, shared web renderer, and G
 entry are deployed in development, staging, and production; the production web authentication and
 product-only flow have passed live verification.
 
+Milestone 4 supplies durable organization-owned execution-environment identities, explicit
+administrator approval, environment-held Ed25519 proof, short-lived proof-bound credentials, key
+rotation, revocation, and append-only security audit events. The web renderer exposes approval,
+listing, and revocation; the execution node owns its private identity and performs the pairing proof.
+Milestones 5 and 6 add the managed outbound per-environment Cloudflare Tunnel, authenticated presence and workspace
+discovery, generation-bound one-time connection tickets, typed dispatch, durable operation intent
+and results, files, commands, terminal/PTY, Git, checkpoints, streaming, reconnect, and bounded
+cancellation. The execution data path is direct from a client through the proxied tunnel hostname to
+the node's loopback origin; Glass Cloud remains the control plane and durable authority. These
+implementations are not operational in production until an active DNS zone, credentials,
+migrations, deployment, and live end-to-end verification are complete.
+
 The web client initiates GitHub authentication directly against Better Auth on the same deployed
 Worker origin. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
 storage. Packaged desktop uses Better Auth's Electron PKCE handoff through the system browser;
@@ -41,14 +53,23 @@ session material remains in the main process, and an allowlisted IPC adapter per
 product requests without exposing cookies to the renderer. No surface substitutes a local identity
 or pre-seeded credential.
 
-Environment pairing, terminal/filesystem operations, managed tunnels, production-ready
-multi-user chat and product experiences, and releases remain later milestones. Editor
+Production-ready multi-user chat and product experiences, deployed execution verification, and
+releases remain later gates. Glass Connect is the only initial execution transport; SSH launch,
+direct LAN endpoints, Tailscale-specific transport, user-managed tunnels, and manually entered
+execution URLs are not initial paths. Editor
 collaboration is not implemented by Glass at a later milestone; OpenEditor owns that capability.
 
 ## Source map
 
 - Product API boundary: `apps/api/src/index.ts`
+- Environment trust service: `apps/api/src/environment-service.ts`
+- Environment schema: `apps/api/src/db/schema.ts`
+- Environment wire contracts: `packages/contracts/src/environments.ts`
+- Node-held identity: `apps/execution-node/src/identity.ts`
+- Publishing UI and client adapter: `apps/web/src/product-cloud/EnvironmentPanel.tsx`, `apps/web/src/product-cloud/environment-cloud.ts`
 - Execution runtime boundary: `apps/execution-node/src/main.ts`
+- Tunnel control and durable authority: `apps/api/src/tunnel-service.ts`, `apps/api/src/connect-authority.ts`
+- Loopback tunnel origin and connector supervisor: `apps/execution-node/src/tunnel-origin.ts`, `apps/execution-node/src/cloudflared.ts`
 - Web renderer: `apps/web/src/`
 - Desktop host and preload: `apps/desktop/src/`
 - Mobile client: `apps/mobile/src/`

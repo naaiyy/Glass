@@ -1,9 +1,29 @@
 export interface GlassApiBindings {
   readonly HYPERDRIVE: Hyperdrive;
+  readonly CONNECT_AUTHORITY: DurableObjectNamespace<
+    import("./connect-authority.ts").GlassConnectAuthority
+  >;
+  readonly CONNECT_TICKET_SECRET: string;
+  readonly CONNECT_NODE_RATE_LIMIT: RateLimit;
+  readonly CONNECT_TUNNEL_ZONE_NAME: string;
+  readonly TUNNEL_CONTROL: ManagedTunnelControl;
+  readonly TRUST_MUTATION_RATE_LIMIT: RateLimit;
+  readonly TRUST_POLL_RATE_LIMIT: RateLimit;
   readonly ALCHEMY_STAGE: string;
   readonly BETTER_AUTH_SECRET: string;
   readonly GITHUB_CLIENT_ID: string;
   readonly GITHUB_CLIENT_SECRET: string;
+}
+
+export interface ManagedTunnelControl {
+  provision(
+    input: Readonly<{ hostname: string; name: string; ownershipId: string; service: string }>,
+  ): Promise<Readonly<{ dnsRecordId: string; tunnelId: string }>>;
+  disconnect(tunnelId: string): Promise<void>;
+  delete(
+    input: Readonly<{ dnsRecordId: string; ownershipId: string; tunnelId: string }>,
+  ): Promise<void>;
+  token(tunnelId: string): Promise<string>;
 }
 
 export type GlassApiBindingInput = Partial<
@@ -17,6 +37,8 @@ export type GlassAuthConfig = Readonly<{
   connectionString: string;
   trustedOrigins: readonly string[];
   secret: string;
+  stage: "dev" | "prod" | "staging";
+  tunnelZoneName?: string;
   github: Readonly<{
     clientId: string;
     clientSecret: string;
@@ -31,6 +53,7 @@ const nonEmpty = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
 const glassCloudStages = ["prod", "staging", "dev"] as const;
+const tunnelZonePattern = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u;
 
 const isGlassCloudStage = (value: unknown): value is (typeof glassCloudStages)[number] =>
   typeof value === "string" && glassCloudStages.some((stage) => stage === value);
@@ -55,6 +78,7 @@ export const resolveGlassAuthConfig = (
   if (!nonEmpty(githubClientSecret)) {
     invalid.add("GITHUB_CLIENT_SECRET");
   }
+  const tunnelZoneName = bindings?.CONNECT_TUNNEL_ZONE_NAME;
 
   if (
     invalid.size > 0 ||
@@ -74,6 +98,10 @@ export const resolveGlassAuthConfig = (
       connectionString,
       trustedOrigins: ["dev.glass.desktop://*", "dev.glass.mobile://*"],
       secret,
+      stage,
+      ...(nonEmpty(tunnelZoneName) && tunnelZonePattern.test(tunnelZoneName)
+        ? { tunnelZoneName: tunnelZoneName.toLowerCase() }
+        : {}),
       github: {
         clientId: githubClientId,
         clientSecret: githubClientSecret,
@@ -81,3 +109,12 @@ export const resolveGlassAuthConfig = (
     },
   };
 };
+
+export const hasGlassConnectBindings = (bindings: GlassApiBindingInput | undefined): boolean =>
+  bindings?.CONNECT_AUTHORITY !== undefined &&
+  bindings.CONNECT_NODE_RATE_LIMIT !== undefined &&
+  bindings.TUNNEL_CONTROL !== undefined &&
+  nonEmpty(bindings.CONNECT_TICKET_SECRET) &&
+  new TextEncoder().encode(bindings.CONNECT_TICKET_SECRET).byteLength >= 32 &&
+  nonEmpty(bindings.CONNECT_TUNNEL_ZONE_NAME) &&
+  tunnelZonePattern.test(bindings.CONNECT_TUNNEL_ZONE_NAME);

@@ -4,7 +4,7 @@ export type GlassSurface = "web" | "desktop" | "mobile";
 
 export type DesktopProductRequest = Readonly<{
   body: string | null;
-  method: "GET" | "POST" | "PUT";
+  method: "DELETE" | "GET" | "POST" | "PUT";
   path: string;
 }>;
 
@@ -39,7 +39,7 @@ export type ExecutionNodeDescriptor = Readonly<{
   kind: "execution-node";
   protocolVersion: typeof glassProtocolVersion;
   capabilities: readonly ExecutionCapability[];
-  status: "foundation";
+  status: "foundation" | "ready";
 }>;
 
 export type HealthDescriptor = Readonly<{

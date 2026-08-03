@@ -7,9 +7,29 @@
       "types": "./src/architecture.ts",
       "import": "./src/architecture.ts"
     },
+    "./connect": {
+      "types": "./src/connect.ts",
+      "import": "./src/connect.ts"
+    },
+    "./connect-tunnel": {
+      "types": "./src/connect-tunnel.ts",
+      "import": "./src/connect-tunnel.ts"
+    },
     "./errors": {
       "types": "./src/errors.ts",
       "import": "./src/errors.ts"
+    },
+    "./environments": {
+      "types": "./src/environments.ts",
+      "import": "./src/environments.ts"
+    },
+    "./execution": {
+      "types": "./src/execution.ts",
+      "import": "./src/execution.ts"
+    },
+    "./execution-cloud": {
+      "types": "./src/execution-cloud.ts",
+      "import": "./src/execution-cloud.ts"
     },
     "./events": {
       "types": "./src/events.ts",

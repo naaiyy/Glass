@@ -4,11 +4,15 @@ Glass documentation is organized by audience. Milestones 0 through 2 establish t
 constitution, runnable monorepo, and deployed Glass Cloud foundation. This repository contains the
 deployed Milestone 3 durable product-core and synchronization implementation. Development,
 staging, and production serve the shared web renderer and product API from one Worker origin, and
-the production Better Auth GitHub lifecycle has passed live verification.
-Environment pairing, Glass Connect, machine execution, production-ready multi-user product
-experiences, and releases remain later milestones unless a page explicitly says otherwise. Editor
-collaboration has no Glass implementation milestone; it remains owned by OpenEditor and arrives in
-Glass only through a coordinated OpenEditor dependency update.
+the production Better Auth GitHub lifecycle has passed live verification. Durable environment trust,
+managed Glass Connect transport, and authorized execution capabilities have repository
+implementations. Glass Connect uses remotely managed per-environment Cloudflare Tunnels with a
+direct client-to-node execution data path. It is not operational in production until an active DNS zone, provider
+credentials, migrations, deployment, and live cross-device verification are complete.
+Production-ready multi-user product experiences and releases remain later completion gates unless
+a page explicitly says otherwise. Editor collaboration has no Glass implementation milestone; it
+remains owned by OpenEditor and arrives in Glass only through a coordinated OpenEditor dependency
+update.
 
 ## Internals
 
@@ -30,9 +34,12 @@ For maintainers and contributors:
 
 ## Operations
 
+- [Execution node operations](operations/execution-node.md)
+
 For infrastructure, deployment, and release owners:
 
 - [Cloud infrastructure](operations/cloud-infrastructure.md)
+- [Environment publishing operations](operations/environment-publishing.md)
 - [Releases](operations/releases.md)
 
 Milestone 2 cloud provisioning and Milestone 3 web/API deployment are operational as described in

@@ -33,6 +33,16 @@ const configuredBindings: GlassApiBindingInput = {
   BETTER_AUTH_SECRET: "a-secure-test-secret-with-at-least-32-characters",
   GITHUB_CLIENT_ID: "github-client-id",
   GITHUB_CLIENT_SECRET: "github-client-secret",
+  CONNECT_NODE_RATE_LIMIT: { limit: async () => ({ success: true }) },
+  CONNECT_TICKET_SECRET: "a-connect-ticket-secret-with-at-least-32-bytes",
+  CONNECT_AUTHORITY: { getByName: () => ({}) } as never,
+  CONNECT_TUNNEL_ZONE_NAME: "glass.test",
+  TUNNEL_CONTROL: {
+    provision: async () => ({ dnsRecordId: "dns-1", tunnelId: "tunnel-1" }),
+    disconnect: async () => undefined,
+    delete: async () => undefined,
+    token: async () => "token",
+  },
 };
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
@@ -54,6 +64,27 @@ const authenticatedFactory =
   });
 
 describe("Glass Cloud API boundary", () => {
+  it("keeps protected product access available without any Glass Connect bindings", async () => {
+    const {
+      CONNECT_AUTHORITY: _authority,
+      CONNECT_NODE_RATE_LIMIT: _nodeLimit,
+      CONNECT_TICKET_SECRET: _ticketSecret,
+      CONNECT_TUNNEL_ZONE_NAME: _zone,
+      TUNNEL_CONTROL: _control,
+      ...productOnlyBindings
+    } = configuredBindings;
+    const response = await handleRequest(
+      new Request("https://glass.invalid/v1/authenticated-proof"),
+      productOnlyBindings,
+      authenticatedFactory(unusedProduct),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      authenticated: true,
+      authority: "glass-cloud",
+    });
+  });
+
   it("exposes an honest durable product descriptor", async () => {
     const response = await handleRequest(new Request("https://glass.invalid/health"));
     expect(response.status).toBe(200);

@@ -15,6 +15,48 @@
       "when": 1785640744141,
       "tag": "0001_short_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785712753226,
+      "tag": "0002_lying_jasper_sitwell",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785713576669,
+      "tag": "0003_flaky_iceman",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785714044788,
+      "tag": "0004_fearless_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785714517047,
+      "tag": "0005_chief_penance",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785714713106,
+      "tag": "0006_amusing_frog_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785718796761,
+      "tag": "0007_mean_salo",
+      "breakpoints": true
     }
   ]
 }

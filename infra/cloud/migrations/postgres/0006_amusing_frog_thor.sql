@@ -1,0 +1,2 @@
+ALTER TYPE "public"."environment_security_event_type" ADD VALUE 'key-rotation-requested' BEFORE 'key-rotated';--> statement-breakpoint
+ALTER TYPE "public"."environment_security_event_type" ADD VALUE 'key-rotation-approved' BEFORE 'key-rotated';

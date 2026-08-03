@@ -3,6 +3,11 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   test: {
+    fileParallelism: false,
+    alias: {
+      "cloudflare:workers": new URL("./apps/api/test/cloudflare-workers.mock.ts", import.meta.url)
+        .pathname,
+    },
     environment: "node",
     exclude: [
       "**/node_modules/**",
