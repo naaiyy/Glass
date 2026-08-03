@@ -19,6 +19,12 @@ describe("Glass Cloud Alchemy resource graph", () => {
     expect(stackSource).toMatch(/PostgresDatabase[\s\S]*?\.pipe\(retain\(\)\)/u);
   });
 
+  it("makes prod the Connect DNS zone owner and references it from other stages", () => {
+    expect(stackSource).toContain('Cloudflare.Zone.Zone("ConnectTunnelZone"');
+    expect(stackSource).toContain('Cloudflare.Zone.Zone.ref("ConnectTunnelZone"');
+    expect(stackSource).toMatch(/ConnectTunnelZone[\s\S]*?\.pipe\(adopt\(true\), retain\(\)\)/u);
+  });
+
   it("applies one committed migration chain to every database branch", () => {
     expect(stackSource.match(/migrationsDir: glassCloudMigrationsDirectory/gu)).toHaveLength(2);
     expect(stackSource).not.toContain("alchemy/Drizzle");

@@ -6,6 +6,7 @@ import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
+import { adopt } from "alchemy/AdoptPolicy";
 import {
   glassCloudMigrationsDirectory,
   glassCloudProductionStage,
@@ -71,9 +72,14 @@ const cloudFoundation = Effect.gen(function* () {
     originConnectionLimit: 20,
   });
 
-  const tunnelZone = Cloudflare.Zone.Zone("ConnectTunnelZone", {
-    name: connectTunnelZoneName,
-  });
+  const tunnelZone =
+    policy.database.ownership === "owner"
+      ? yield* Cloudflare.Zone.Zone("ConnectTunnelZone", {
+          name: connectTunnelZoneName,
+        }).pipe(adopt(true), retain())
+      : yield* Cloudflare.Zone.Zone.ref("ConnectTunnelZone", {
+          stage: glassCloudProductionStage,
+        });
 
   type TunnelControlShape = {
     provision: (input: {
