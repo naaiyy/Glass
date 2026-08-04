@@ -43,17 +43,14 @@ const electronOAuthProxyPath = "/api/auth/electron/init-oauth-proxy";
 export const createGlassAuthHandler =
   (handleAuth: AuthHandler): AuthHandler =>
   async (request) => {
-    const url = new URL(request.url);
-    if (request.method === "POST" && url.pathname === "/api/auth/electron/token") {
-      try {
-        return await handleAuth(request);
-      } catch (cause) {
-        console.error("Temporary Electron token diagnostic.", {
-          message: cause instanceof TypeError ? cause.message.slice(0, 160) : "non-type-error",
-        });
-        throw cause;
-      }
+    const electronOrigin = request.headers.get("electron-origin");
+    if (request.headers.get("origin") === null && electronOrigin !== null) {
+      const headers = new Headers(request.headers);
+      headers.set("origin", electronOrigin);
+      request = new Request(request, { headers });
     }
+
+    const url = new URL(request.url);
     if (request.method !== "GET" || url.pathname !== electronOAuthProxyPath) {
       return handleAuth(request);
     }

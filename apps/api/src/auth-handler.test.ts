@@ -13,6 +13,25 @@ const proxyUrl =
   }).toString();
 
 describe("Glass authentication handler", () => {
+  it("normalizes the Electron origin into mutable request headers", async () => {
+    const handleAuth = vi.fn(async (request: Request) =>
+      Response.json({ origin: request.headers.get("origin") }),
+    );
+    const response = await createGlassAuthHandler(handleAuth)(
+      new Request("https://glass.example/api/auth/electron/token", {
+        body: JSON.stringify({ token: "token" }),
+        headers: {
+          "content-type": "application/json",
+          "electron-origin": "dev.glass.desktop:/",
+        },
+        method: "POST",
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({ origin: "dev.glass.desktop:/" });
+    expect(handleAuth).toHaveBeenCalledOnce();
+  });
+
   it("dispatches the Electron OAuth proxy internally and preserves its cookies", async () => {
     const handleAuth = vi.fn(async (request: Request) => {
       const url = new URL(request.url);
