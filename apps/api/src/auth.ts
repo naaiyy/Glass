@@ -44,6 +44,16 @@ export const createGlassAuthHandler =
   (handleAuth: AuthHandler): AuthHandler =>
   async (request) => {
     const url = new URL(request.url);
+    if (request.method === "POST" && url.pathname === "/api/auth/electron/token") {
+      try {
+        return await handleAuth(request);
+      } catch (cause) {
+        console.error("Temporary Electron token diagnostic.", {
+          message: cause instanceof TypeError ? cause.message.slice(0, 160) : "non-type-error",
+        });
+        throw cause;
+      }
+    }
     if (request.method !== "GET" || url.pathname !== electronOAuthProxyPath) {
       return handleAuth(request);
     }
