@@ -6,6 +6,8 @@ import { createAuthClient } from "better-auth/client";
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
+import { setupDesktopAuthMain, type DesktopAuthMainClient } from "./auth-main.ts";
+
 const desktopDirectory = __dirname;
 const sharedRendererProject = "../../web/dist/index.html";
 const isSmokeTest = process.argv.includes("--glass-smoke-test");
@@ -40,21 +42,16 @@ const electronAuthPlugin = electronClient({
   storage: storage(),
 });
 
-type DesktopAuthClient = Readonly<{
-  getCookie: () => string;
-  setupMain: (input: Readonly<{ getWindow: () => BrowserWindow | null }>) => void;
-}>;
-
 // The integration's runtime and Better Auth versions are pinned together. Their published
 // RequestCache declarations differ under Electron's DOM library, so the cast is isolated here.
 const authClient = createAuthClient({
   baseURL: productCloudOrigin,
   plugins: [electronAuthPlugin] as unknown as BetterAuthClientOptions["plugins"],
-}) as unknown as DesktopAuthClient;
+}) as unknown as DesktopAuthMainClient;
 
 let primaryWindow: BrowserWindow | null = null;
 
-authClient.setupMain({ getWindow: () => primaryWindow });
+setupDesktopAuthMain(authClient, () => primaryWindow);
 
 const maximumDesktopProductBodyBytes = 6 * 1024 * 1024;
 const allowedProductRequest = (input: unknown): input is DesktopProductRequest => {

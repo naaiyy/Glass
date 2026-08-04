@@ -37,6 +37,23 @@ describe("Glass API authentication bindings", () => {
     });
   });
 
+  it("trusts Expo Go OAuth returns only in the development stage", () => {
+    const result = resolveGlassAuthConfig(validBindings);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.config.trustedOrigins).toContain("dev.glass.mobile://*");
+    expect(result.config.trustedOrigins).not.toContain("exp://**");
+    expect(result.config.trustedOrigins).not.toContain("http://*");
+    expect(result.config.trustedOrigins).not.toContain("https://*");
+
+    const development = resolveGlassAuthConfig({ ...validBindings, ALCHEMY_STAGE: "dev" });
+    expect(development.ok).toBe(true);
+    if (!development.ok) return;
+    expect(development.config.trustedOrigins).toContain("dev.glass.mobile://*");
+    expect(development.config.trustedOrigins).toContain("exp://**");
+  });
+
   it("rejects unknown or missing deployment stages", () => {
     expect(
       resolveGlassAuthConfig({

@@ -43,6 +43,8 @@ export const mobileAuthenticatedFetch = (apiBaseUrl: string): typeof fetch => {
 
 export const signInWithGitHub = async (apiBaseUrl: string): Promise<void> => {
   const result = await getMobileAuthClient(apiBaseUrl).signIn.social({
+    // Keep this relative: the Expo plugin resolves it to exp:// while running in Expo Go and to
+    // dev.glass.mobile:// in a development or packaged build.
     callbackURL: "/",
     provider: "github",
   });

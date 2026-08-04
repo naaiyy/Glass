@@ -54,6 +54,7 @@ const nonEmpty = (value: unknown): value is string =>
 
 const glassCloudStages = ["prod", "staging", "dev"] as const;
 const tunnelZonePattern = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u;
+const packagedGlassTrustedOrigins = ["dev.glass.desktop://*", "dev.glass.mobile://*"] as const;
 
 const isGlassCloudStage = (value: unknown): value is (typeof glassCloudStages)[number] =>
   typeof value === "string" && glassCloudStages.some((stage) => stage === value);
@@ -96,7 +97,12 @@ export const resolveGlassAuthConfig = (
     config: {
       allowedHosts: [`glasscloud-api-${stage}-*.workers.dev`],
       connectionString,
-      trustedOrigins: ["dev.glass.desktop://*", "dev.glass.mobile://*"],
+      trustedOrigins: [
+        ...packagedGlassTrustedOrigins,
+        // Expo Go is a development container and returns to exp:// rather than the packaged app
+        // scheme. Never broaden staging or production callback trust for that development path.
+        ...(stage === "dev" ? (["exp://**"] as const) : []),
+      ],
       secret,
       stage,
       ...(nonEmpty(tunnelZoneName) && tunnelZonePattern.test(tunnelZoneName)

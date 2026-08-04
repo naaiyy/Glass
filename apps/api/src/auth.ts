@@ -36,6 +36,73 @@ export type GlassAuthRuntimeFactory = (
   bindings?: GlassApiBindingInput,
 ) => Promise<GlassAuthRuntime>;
 
+type AuthHandler = (request: Request) => Promise<Response>;
+
+const electronOAuthProxyPath = "/api/auth/electron/init-oauth-proxy";
+
+export const createGlassAuthHandler =
+  (handleAuth: AuthHandler): AuthHandler =>
+  async (request) => {
+    const url = new URL(request.url);
+    if (request.method !== "GET" || url.pathname !== electronOAuthProxyPath) {
+      return handleAuth(request);
+    }
+
+    const provider = url.searchParams.get("provider");
+    const clientId = url.searchParams.get("client_id");
+    const codeChallenge = url.searchParams.get("code_challenge");
+    const codeChallengeMethod = url.searchParams.get("code_challenge_method");
+    const state = url.searchParams.get("state");
+    if (
+      provider !== "github" ||
+      clientId !== "glass-desktop" ||
+      codeChallenge === null ||
+      codeChallenge.length === 0 ||
+      codeChallengeMethod?.toLowerCase() !== "s256" ||
+      state === null ||
+      state.length === 0
+    ) {
+      // Keep Better Auth as the authority for malformed or unsupported proxy requests.
+      return handleAuth(request);
+    }
+
+    const signInUrl = new URL("/api/auth/sign-in/social", url.origin);
+    signInUrl.searchParams.set("client_id", clientId);
+    signInUrl.searchParams.set("code_challenge", codeChallenge);
+    signInUrl.searchParams.set("code_challenge_method", "S256");
+    signInUrl.searchParams.set("state", state);
+    const headers = new Headers(request.headers);
+    headers.set("content-type", "application/json");
+    headers.set("origin", url.origin);
+    const response = await handleAuth(
+      new Request(signInUrl, {
+        body: JSON.stringify({ provider }),
+        headers,
+        method: "POST",
+      }),
+    );
+    if (!response.ok) return response;
+
+    const payload = (await response.clone().json()) as unknown;
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("redirect" in payload) ||
+      payload.redirect !== true ||
+      !("url" in payload) ||
+      typeof payload.url !== "string"
+    ) {
+      return response;
+    }
+
+    const redirectHeaders = new Headers(response.headers);
+    redirectHeaders.delete("content-length");
+    redirectHeaders.delete("content-type");
+    redirectHeaders.set("cache-control", "no-store");
+    redirectHeaders.set("location", payload.url);
+    return new Response(null, { headers: redirectHeaders, status: 302 });
+  };
+
 export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bindings) => {
   const client = new Client({
     connectionString: config.connectionString,
@@ -71,7 +138,10 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bi
 
     const execution = createPostgresExecutionService(client);
     return {
-      handle: (request) => auth.handler(request),
+      // Better Auth's Electron 1.6 proxy performs a public HTTP fetch back into its own origin.
+      // Cloudflare Workers cannot recursively fetch the same Worker, so dispatch that one
+      // equivalent social-sign-in request directly through the authenticated handler.
+      handle: createGlassAuthHandler(auth.handler),
       getSession: (headers) => auth.api.getSession({ headers }),
       product: createPostgresProductService(client),
       environment: createPostgresEnvironmentService(client),
