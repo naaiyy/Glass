@@ -10,6 +10,23 @@ const expectedWorkspaces = {
   packages: ["client-runtime", "contracts", "domain", "execution-core", "shared", "ui-web"],
 };
 
+const rootManifest = readJson("package.json");
+assert.match(
+  rootManifest.scripts.dev,
+  /scripts\/dev-runner\.mjs/u,
+  "the default development command must launch a usable Glass application",
+);
+assert.match(
+  rootManifest.scripts["dev:web"],
+  /@glass\/web/u,
+  "the renderer-only development command must remain explicit",
+);
+assert.notEqual(
+  rootManifest.scripts.dev,
+  rootManifest.scripts["dev:web"],
+  "the default application launcher must not collapse into the renderer-only task",
+);
+
 function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }

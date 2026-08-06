@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node --check check-architecture.mjs",
-    "test": "node check-architecture.mjs",
-    "typecheck": "node --check check-architecture.mjs"
+    "build": "node --check check-architecture.mjs && node --check dev-runner.mjs",
+    "test": "node check-architecture.mjs && vp test run dev-runner.test.mjs",
+    "typecheck": "node --check check-architecture.mjs && node --check dev-runner.mjs"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
   }
 }

@@ -6,13 +6,13 @@ import { createAuthClient } from "better-auth/client";
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
+import glassCloudConfig from "../../../config/glass-cloud.json" with { type: "json" };
 import { setupDesktopAuthMain, type DesktopAuthMainClient } from "./auth-main.ts";
 
 const desktopDirectory = __dirname;
 const sharedRendererProject = "../../web/dist/index.html";
 const isSmokeTest = process.argv.includes("--glass-smoke-test");
-const defaultProductCloudOrigin =
-  "https://glasscloud-api-prod-lcuxsmngpdigrgum.naaiyyyy.workers.dev";
+const defaultProductCloudOrigin = glassCloudConfig.origins.production;
 
 const resolveProductCloudOrigin = (input: string | undefined): string => {
   const value = input?.trim() || defaultProductCloudOrigin;

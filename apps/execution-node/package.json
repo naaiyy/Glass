@@ -37,7 +37,7 @@
   },
   "scripts": {
     "build": "tsgo -p tsconfig.build.json",
-    "dev": "node --experimental-strip-types src/main.ts",
+    "dev": "node --experimental-strip-types src/main.ts connect",
     "start": "node dist/main.js connect",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsgo --noEmit"
