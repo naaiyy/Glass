@@ -56,7 +56,9 @@ creation, configuration, token retrieval, forced connection cleanup, and deletio
 provider API. DNS uses a separate zone-scoped token. These credentials add no product authority,
 never leave the private Worker, and are rotated and audited independently. Better
 Auth uses the stage to allow only the matching generated `workers.dev` host
-when resolving its OAuth base URL. Alchemy resolves each secret through `Config.redacted`
+when resolving its OAuth base URL. The development stage additionally trusts the loopback origin
+used by the repository launcher and enables Better Auth's encrypted OAuth proxy return; staging and
+production do not accept that development origin. Alchemy resolves each secret through `Config.redacted`
 and uploads it as a Cloudflare `secret_text` binding. Authentication routes
 remain unavailable when any required binding or durable database connection is
 absent.

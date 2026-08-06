@@ -47,16 +47,17 @@ vp i
 vp run dev
 ```
 
-`vp run dev` verifies Glass Cloud, starts the live Vite renderer in the shared desktop shell, and
-resumes the published execution node when both its identity and workspace registry exist. It uses
-`GLASS_CLOUD_ORIGIN` when explicitly set, otherwise the origin stored in the paired execution
-identity, otherwise the checked-in development Glass Cloud origin. Set `GLASS_DEV_PRODUCT_ONLY=1`
-to deliberately launch without machine capabilities.
+`vp run dev` launches the complete browser application: it verifies the development Glass Cloud
+API and authentication boundary, starts the local Vite renderer with HMR and a same-origin product
+proxy, opens the browser, and resumes the execution node when its published identity and workspace
+registry exist. No separate server terminal or frontend deployment is required.
 
-The focused `vp run dev:web` command starts only the renderer. It is useful for isolated UI work,
-but it is not a complete Glass application because a bare Vite origin is not Glass Cloud. Other
-focused tasks include `vp run dev:desktop`, `vp run dev:mobile`, `vp run dev:api`, and
-`vp run dev:execution-node`.
+Use `vp run dev:web` for the same explicit web entry, `vp run dev:desktop` for the shared live
+renderer in Electron, and `vp run dev:mobile` or `vp run dev:mobile:ios` for Expo. Every client
+entry selects the checked-in development Glass Cloud origin, supplies its client runtime
+configuration, and resumes the same execution node when configured. `GLASS_CLOUD_ORIGIN` and the
+identity/workspace path variables remain explicit operator overrides. The focused `dev:api` and
+`dev:execution-node` tasks are service-level diagnostics, not prerequisites for a client launch.
 
 Use the repository workflow for verification:
 

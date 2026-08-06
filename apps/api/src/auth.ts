@@ -2,6 +2,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { electron } from "@better-auth/electron";
 import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
+import { oAuthProxy } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client } from "pg";
 
@@ -39,10 +40,38 @@ export type GlassAuthRuntimeFactory = (
 type AuthHandler = (request: Request) => Promise<Response>;
 
 const electronOAuthProxyPath = "/api/auth/electron/init-oauth-proxy";
+const developmentOriginHeader = "x-glass-development-origin";
+const loopbackDevelopmentOrigin = /^http:\/\/127\.0\.0\.1:\d{1,5}$/u;
+
+const parseDevelopmentOrigin = (input: string): URL | null => {
+  if (!loopbackDevelopmentOrigin.test(input)) return null;
+  try {
+    const origin = new URL(input);
+    const port = Number(origin.port);
+    return Number.isInteger(port) && port > 0 && port <= 65_535 ? origin : null;
+  } catch {
+    return null;
+  }
+};
 
 export const createGlassAuthHandler =
-  (handleAuth: AuthHandler): AuthHandler =>
+  (handleAuth: AuthHandler, development = false): AuthHandler =>
   async (request) => {
+    const developmentOrigin = request.headers.get(developmentOriginHeader);
+    if (development && developmentOrigin !== null) {
+      const headers = new Headers(request.headers);
+      headers.delete(developmentOriginHeader);
+      const origin = parseDevelopmentOrigin(developmentOrigin);
+      const requestUrl = new URL(request.url);
+      headers.set("x-forwarded-host", requestUrl.host);
+      headers.set("x-forwarded-proto", requestUrl.protocol.slice(0, -1));
+      const url =
+        origin === null
+          ? requestUrl
+          : new URL(`${requestUrl.pathname}${requestUrl.search}`, origin.origin);
+      request = new Request(new Request(url, request), { headers });
+    }
+
     const electronOrigin = request.headers.get("electron-origin");
     if (request.headers.get("origin") === null && electronOrigin !== null) {
       const headers = new Headers(request.headers);
@@ -135,8 +164,9 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bi
           clientSecret: config.github.clientSecret,
         },
       },
-      plugins: [electron({ clientID: "glass-desktop" }), expo()],
+      plugins: [electron({ clientID: "glass-desktop" }), expo(), oAuthProxy()],
       advanced: {
+        trustedProxyHeaders: true,
         database: {
           generateId: () => crypto.randomUUID(),
         },
@@ -148,7 +178,7 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bi
       // Better Auth's Electron 1.6 proxy performs a public HTTP fetch back into its own origin.
       // Cloudflare Workers cannot recursively fetch the same Worker, so dispatch that one
       // equivalent social-sign-in request directly through the authenticated handler.
-      handle: createGlassAuthHandler(auth.handler),
+      handle: createGlassAuthHandler(auth.handler, config.stage === "dev"),
       getSession: (headers) => auth.api.getSession({ headers }),
       product: createPostgresProductService(client),
       environment: createPostgresEnvironmentService(client),

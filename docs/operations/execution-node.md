@@ -48,9 +48,10 @@ Set `GLASS_EXECUTION_STATE_ROOT` to override the local checkpoint and operation-
 Set `GLASS_NODE_IDENTITY_PATH`, or pass `--identity`, to override the default
 `~/.glass/execution-node.json`. The identity file is written atomically with owner-only permissions.
 
-From the repository root, `vp run dev` builds and starts the live desktop renderer and automatically
-resumes the execution node when the identity and workspace registry are both present. Set
-`GLASS_DEV_PRODUCT_ONLY=1` when testing the normal product-only state deliberately.
+From the repository root, every complete client development entry (`vp run dev`, `dev:desktop`,
+and `dev:mobile`) automatically builds and resumes the execution node when the identity and
+workspace registry are both present. The client remains connected to Glass Cloud while the node
+starts or reconnects; no second terminal owns the execution process.
 
 Glass Cloud reports the environment online after the managed connector starts. The node binds its
 execution WebSocket origin only to an ephemeral `127.0.0.1` port and obtains a proof-bound managed

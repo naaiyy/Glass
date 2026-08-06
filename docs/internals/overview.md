@@ -32,7 +32,7 @@ infrastructure, and the durable database connection supply the product foundatio
 adds organization-scoped product state, transactional change events, synchronization, and
 device-owned outbox behavior. Its migrations, routes, shared web renderer, and GitHub authentication
 entry are deployed in development, staging, and production; the production web authentication and
-product-only flow have passed live verification.
+cloud-owned product flow have passed live verification.
 
 Environment trust supplies durable organization-owned execution-environment identities, explicit
 administrator approval, environment-held Ed25519 proof, short-lived proof-bound credentials, key
@@ -47,7 +47,8 @@ paths are deployed in development, staging, and production and have passed live 
 tunnel, direct WebSocket, durable-result, rotation, and cleanup verification.
 
 The web client initiates GitHub authentication directly against Better Auth on the same deployed
-Worker origin. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
+Worker origin. During local web development, Vite preserves that same-origin client model through
+the development Cloud proxy and Better Auth's encrypted OAuth proxy return. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
 storage. Packaged desktop uses Better Auth's Electron PKCE handoff through the system browser;
 session material remains in the main process, and an allowlisted IPC adapter performs authenticated
 product requests without exposing cookies to the renderer. No surface substitutes a local identity

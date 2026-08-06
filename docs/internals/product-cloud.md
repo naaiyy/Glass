@@ -33,6 +33,11 @@ binary product uploads. The Worker also serves the shared web renderer as static
 browser authentication and product requests on one origin. Native mobile and packaged desktop use
 the official Better Auth platform integrations rather than browser-cookie assumptions.
 
+The local web development origin remains a complete browser application without becoming a second
+product backend. Vite proxies product paths to development Glass Cloud, and Better Auth's OAuth
+proxy returns the authenticated session to the validated loopback origin after the provider callback
+completes on Glass Cloud. See [Development runtime](development-runtime.md).
+
 OpenEditor is the only editor implementation. Glass Cloud may authenticate, authorize, and store
 the native OpenEditor payload through a dedicated adapter, but generic artifact JSON, product
 events, snapshots, and the device outbox never carry editor content. See

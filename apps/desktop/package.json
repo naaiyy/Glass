@@ -5,7 +5,7 @@
   "main": "dist-electron/main.cjs",
   "scripts": {
     "build": "vp build --config vite.main.config.ts && vp build --config vite.preload.config.ts",
-    "dev": "vp run --filter @glass/web build && vp run build && node scripts/start-electron.mjs",
+    "dev": "node ../../scripts/dev-runner.mjs desktop",
     "ensure:electron": "node scripts/ensure-electron-runtime.mjs",
     "smoke-test": "node scripts/smoke-test.mjs",
     "start": "node scripts/start-electron.mjs",

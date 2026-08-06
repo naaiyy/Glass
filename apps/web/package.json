@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "vp build",
-    "dev": "vp dev",
+    "dev": "node ../../scripts/dev-runner.mjs web",
     "preview": "vp preview",
+    "start:vite": "vp dev",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsgo --noEmit"
   },

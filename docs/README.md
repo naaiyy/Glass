@@ -18,6 +18,7 @@ update.
 For maintainers and contributors:
 
 - [System overview](internals/overview.md)
+- [Development runtime](internals/development-runtime.md)
 - [Product cloud](internals/product-cloud.md)
 - [Durable product core](internals/durable-product-core.md)
 - [Product synchronization and outbox](internals/synchronization.md)

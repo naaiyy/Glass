@@ -37,7 +37,7 @@ describe("Glass API authentication bindings", () => {
     });
   });
 
-  it("trusts Expo Go OAuth returns only in the development stage", () => {
+  it("trusts local client OAuth returns only in the development stage", () => {
     const result = resolveGlassAuthConfig(validBindings);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -52,6 +52,7 @@ describe("Glass API authentication bindings", () => {
     if (!development.ok) return;
     expect(development.config.trustedOrigins).toContain("dev.glass.mobile://*");
     expect(development.config.trustedOrigins).toContain("exp://**");
+    expect(development.config.trustedOrigins).toContain("http://127.0.0.1:*");
   });
 
   it("rejects unknown or missing deployment stages", () => {

@@ -4,9 +4,11 @@
   "main": "index.ts",
   "scripts": {
     "build": "expo export --platform ios --output-dir dist",
-    "dev": "expo start --clear",
-    "dev:ios": "expo run:ios",
+    "dev": "node ../../scripts/dev-runner.mjs mobile",
+    "dev:ios": "node ../../scripts/dev-runner.mjs mobile-ios",
     "start": "expo start",
+    "start:ios": "expo run:ios",
+    "start:metro": "expo start --clear",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },

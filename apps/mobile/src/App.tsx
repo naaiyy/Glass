@@ -116,7 +116,7 @@ type ProductPhase =
   | "configuration-required"
   | "live"
   | "offline"
-  | "product-only"
+  | "organization-selection"
   | "signed-out"
   | "synchronizing";
 
@@ -362,7 +362,7 @@ const useProductCloud = () => {
         show({
           authenticatedUserId: userId,
           error: null,
-          phase: "product-only",
+          phase: "organization-selection",
           scope: null,
           snapshot: null,
         });
@@ -394,7 +394,7 @@ const useProductCloud = () => {
           show({
             authenticatedUserId: userId,
             error: errorMessage(error),
-            phase: "product-only",
+            phase: "organization-selection",
             scope: attention ? { organizationId, userId } : null,
             snapshot: null,
           });
@@ -1183,7 +1183,7 @@ const HomeScreen = ({
         </StateCard>
       ) : null}
 
-      {view.phase === "product-only" && authenticatedUserId !== null ? (
+      {view.phase === "organization-selection" && authenticatedUserId !== null ? (
         <StateCard title="Product connection ready">
           {view.error === null ? null : <Text style={styles.error}>{view.error}</Text>}
           <Text style={styles.body}>Choose one of your organizations or create a new one.</Text>
@@ -1271,7 +1271,7 @@ const HomeScreen = ({
         </StateCard>
       ) : null}
 
-      {view.phase !== "product-only" && authenticatedUserId !== null ? (
+      {view.phase !== "organization-selection" && authenticatedUserId !== null ? (
         <StateCard title="Your organizations">
           {organizations.map((item) => (
             <ActionButton

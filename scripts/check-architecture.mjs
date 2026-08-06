@@ -18,14 +18,16 @@ assert.match(
 );
 assert.match(
   rootManifest.scripts["dev:web"],
-  /@glass\/web/u,
-  "the renderer-only development command must remain explicit",
+  /scripts\/dev-runner\.mjs web/u,
+  "the web development command must launch the complete browser application",
 );
-assert.notEqual(
+assert.equal(
   rootManifest.scripts.dev,
   rootManifest.scripts["dev:web"],
-  "the default application launcher must not collapse into the renderer-only task",
+  "the default development command must be the complete browser application",
 );
+assert.match(rootManifest.scripts["dev:desktop"], /scripts\/dev-runner\.mjs desktop/u);
+assert.match(rootManifest.scripts["dev:mobile"], /scripts\/dev-runner\.mjs mobile/u);
 
 function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
