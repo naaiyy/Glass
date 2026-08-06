@@ -31,19 +31,26 @@ Every workspace has a stable UUID, a display name, and an absolute directory own
 execution environment:
 
 ```sh
-export GLASS_EXECUTION_WORKSPACES='[
-  {
-    "id":"11111111-1111-4111-8111-111111111111",
-    "name":"Glass",
-    "root":"/absolute/path/to/Glass"
-  }
-]'
+node apps/execution-node/dist/main.js workspace-add \
+  --id 11111111-1111-4111-8111-111111111111 \
+  --name "Glass" \
+  --root /absolute/path/to/Glass
 node apps/execution-node/dist/main.js connect
 ```
+
+The environment-owned registry is stored at `~/.glass/execution-workspaces.json` with owner-only
+permissions. Use `workspace-list` to inspect it and `workspace-remove --id UUID` to revoke a local
+registration. Set `GLASS_EXECUTION_WORKSPACES_PATH`, or pass `--workspaces`, to use another registry.
+`GLASS_EXECUTION_WORKSPACES` remains an explicit process-local JSON override for automation and
+does not replace the durable registry.
 
 Set `GLASS_EXECUTION_STATE_ROOT` to override the local checkpoint and operation-journal directory.
 Set `GLASS_NODE_IDENTITY_PATH`, or pass `--identity`, to override the default
 `~/.glass/execution-node.json`. The identity file is written atomically with owner-only permissions.
+
+From the repository root, `vp run dev` builds and starts the live desktop renderer and automatically
+resumes the execution node when the identity and workspace registry are both present. Set
+`GLASS_DEV_PRODUCT_ONLY=1` when testing the normal product-only state deliberately.
 
 Glass Cloud reports the environment online after the managed connector starts. The node binds its
 execution WebSocket origin only to an ephemeral `127.0.0.1` port and obtains a proof-bound managed

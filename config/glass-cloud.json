@@ -1,0 +1,7 @@
+{
+  "origins": {
+    "development": "https://glasscloud-api-dev-iqwgnfdineqiceki.naaiyyyy.workers.dev",
+    "production": "https://glasscloud-api-prod-lcuxsmngpdigrgum.naaiyyyy.workers.dev",
+    "staging": "https://glasscloud-api-staging-rmhiqpuua7m4g6a3.naaiyyyy.workers.dev"
+  }
+}

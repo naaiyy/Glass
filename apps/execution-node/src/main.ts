@@ -3,7 +3,7 @@ import { decodeId } from "@glass/contracts/ids";
 import { readExecutionDescriptor } from "@glass/execution-core/capabilities";
 import { Effect } from "effect";
 import { hostname, platform } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { CloudflaredSupervisor } from "./cloudflared.ts";
 import { createExecutionNodeHandler, type ExecutionNodeWorkspace } from "./execution-handler.ts";
@@ -22,6 +22,13 @@ import {
 import { createTunnelControl, TunnelControlError } from "./tunnel-control.ts";
 import { startTunnelOrigin } from "./tunnel-origin.ts";
 import { FrameDeliveryJournal, FrameDeliveryRecovery } from "./frame-delivery-journal.ts";
+import {
+  addWorkspaceRegistration,
+  defaultWorkspaceRegistryPath,
+  loadConfiguredWorkspaces,
+  loadWorkspaceRegistry,
+  removeWorkspaceRegistration,
+} from "./workspace-config.ts";
 
 const args = process.argv.slice(2);
 const command = args[0] ?? "descriptor";
@@ -30,36 +37,8 @@ const option = (name: string): string | undefined => {
   return index < 0 ? undefined : args[index + 1];
 };
 
-const parseWorkspaces = (): readonly ExecutionNodeWorkspace[] => {
-  const rawValue = process.env.GLASS_EXECUTION_WORKSPACES;
-  if (rawValue === undefined)
-    throw new Error("GLASS_EXECUTION_WORKSPACES must register at least one workspace.");
-  const raw = JSON.parse(rawValue) as unknown;
-  if (!Array.isArray(raw) || raw.length === 0)
-    throw new Error("GLASS_EXECUTION_WORKSPACES must be a non-empty array.");
-  return raw.map((input, index) => {
-    if (
-      typeof input !== "object" ||
-      input === null ||
-      !("id" in input) ||
-      !("name" in input) ||
-      !("root" in input)
-    )
-      throw new Error(`Invalid workspace registration at index ${index}.`);
-    const id = decodeId<WorkspaceId>(input.id, `workspaces[${index}].id`);
-    if (
-      !id.ok ||
-      typeof input.name !== "string" ||
-      input.name.length === 0 ||
-      input.name.length > 120 ||
-      typeof input.root !== "string"
-    )
-      throw new Error(`Invalid workspace registration at index ${index}.`);
-    return { id: id.value, name: input.name, root: input.root };
-  });
-};
-
 const identityPath = option("--identity") ?? defaultIdentityPath();
+const workspaceRegistryPath = option("--workspaces") ?? defaultWorkspaceRegistryPath(identityPath);
 
 if (command === "descriptor") {
   process.stdout.write(`${JSON.stringify(await Effect.runPromise(readExecutionDescriptor))}\n`);
@@ -78,11 +57,35 @@ if (command === "descriptor") {
   identity = await refreshCredential(identity);
   await saveNodeIdentity(identity, identityPath);
   process.stdout.write(`Published as ${identity.environment?.displayName}.\n`);
+} else if (command === "workspace-add") {
+  const id = decodeId<WorkspaceId>(option("--id"), "workspace.id");
+  const name = option("--name")?.trim();
+  const root = option("--root")?.trim();
+  if (!id.ok || name === undefined || name.length === 0 || root === undefined || !isAbsolute(root))
+    throw new Error("workspace-add requires --id UUID, --name NAME, and --root ABSOLUTE_PATH.");
+  const workspaces = await addWorkspaceRegistration(
+    { id: id.value, name, root: resolve(root) },
+    workspaceRegistryPath,
+  );
+  process.stdout.write(
+    `Registered ${name} in ${workspaceRegistryPath} (${workspaces.length} total).\n`,
+  );
+} else if (command === "workspace-list") {
+  const workspaces = await loadWorkspaceRegistry(workspaceRegistryPath, { allowMissing: true });
+  process.stdout.write(`${JSON.stringify({ path: workspaceRegistryPath, workspaces }, null, 2)}\n`);
+} else if (command === "workspace-remove") {
+  const id = decodeId<WorkspaceId>(option("--id"), "workspace.id");
+  if (!id.ok) throw new Error("workspace-remove requires --id UUID.");
+  const result = await removeWorkspaceRegistration(id.value, workspaceRegistryPath);
+  process.stdout.write(
+    `${result.removed ? "Removed" : "Did not find"} workspace ${id.value} in ${workspaceRegistryPath}.\n`,
+  );
 } else if (command === "connect") {
   let identity = await loadNodeIdentity(identityPath);
   if (identity === null)
     throw new Error("No execution identity exists. Run the pair command first.");
-  const workspaces = parseWorkspaces();
+  const workspaces: readonly ExecutionNodeWorkspace[] =
+    await loadConfiguredWorkspaces(workspaceRegistryPath);
   const descriptor = await Effect.runPromise(readExecutionDescriptor);
   const handleDispatch = await createExecutionNodeHandler({
     checkpointRoot:
@@ -217,6 +220,6 @@ if (command === "descriptor") {
   process.stdout.write(`Rotated key for ${identity.environment?.displayName}.\n`);
 } else {
   throw new Error(
-    "Usage: glass-execution-node descriptor | pair [--api URL] [--name NAME] | rotate | connect",
+    "Usage: glass-execution-node descriptor | pair [--api URL] [--name NAME] | rotate | workspace-add --id UUID --name NAME --root PATH | workspace-list | workspace-remove --id UUID | connect",
   );
 }

@@ -16,6 +16,10 @@ Local build, test, and typecheck do not change provider state.
 | staging     | `glasscloud-api-staging-rmhiqpuua7m4g6a3.naaiyyyy.workers.dev` |
 | development | `glasscloud-api-dev-iqwgnfdineqiceki.naaiyyyy.workers.dev`     |
 
+The machine-readable public origins used by development launchers and packaged clients live in
+`config/glass-cloud.json`. This table explains operator ownership; it is not a separate source of
+runtime values.
+
 ## Ownership and stages
 
 The `GlassCloud` stack uses Alchemy's stage conventions:
@@ -110,6 +114,7 @@ in all three GitHub environments without changing binding names.
 ## Source map
 
 - Infrastructure stack: `infra/cloud/alchemy.run.ts`
+- Public stage origins: `config/glass-cloud.json`
 - Stage policy: `infra/cloud/src/environments.ts`
 - Generated Better Auth schema: `apps/api/src/db/auth-schema.generated.ts`
 - Composed durable schema: `apps/api/src/db/schema.ts`

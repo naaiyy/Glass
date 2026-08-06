@@ -39,17 +39,33 @@ See [docs/README.md](docs/README.md) for architecture and operations documentati
 
 ## Development
 
-Install the global `vp` command from the [Vite Plus guide](https://viteplus.dev/guide/), then use the repository workflow:
+Install the global `vp` command from the [Vite Plus guide](https://viteplus.dev/guide/), install
+dependencies once, then launch the usable development application:
 
 ```sh
 vp i
+vp run dev
+```
+
+`vp run dev` verifies Glass Cloud, starts the live Vite renderer in the shared desktop shell, and
+resumes the published execution node when both its identity and workspace registry exist. It uses
+`GLASS_CLOUD_ORIGIN` when explicitly set, otherwise the origin stored in the paired execution
+identity, otherwise the checked-in development Glass Cloud origin. Set `GLASS_DEV_PRODUCT_ONLY=1`
+to deliberately launch without machine capabilities.
+
+The focused `vp run dev:web` command starts only the renderer. It is useful for isolated UI work,
+but it is not a complete Glass application because a bare Vite origin is not Glass Cloud. Other
+focused tasks include `vp run dev:desktop`, `vp run dev:mobile`, `vp run dev:api`, and
+`vp run dev:execution-node`.
+
+Use the repository workflow for verification:
+
+```sh
 vp check
 vpr typecheck
 vp run test
 vp run build
 ```
-
-Focused development tasks are exposed through the root package, including `vp run dev:web`, `vp run dev:desktop`, `vp run dev:mobile`, `vp run dev:api`, and `vp run dev:execution-node`.
 
 ## Publish an execution environment
 
@@ -64,14 +80,20 @@ node apps/execution-node/dist/main.js pair \
   --name "Build Mac"
 ```
 
-After approval, register each workspace with a stable UUID and an absolute local path, then start
-the outbound Glass Connect node. The node starts a loopback-only origin, obtains its proof-bound
-tunnel configuration, and supervises the pinned connector; users never enter an execution URL:
+After approval, register each workspace once with a stable UUID and an absolute local path. The
+environment-owned registry defaults to `~/.glass/execution-workspaces.json`:
 
 ```sh
-export GLASS_EXECUTION_WORKSPACES='[{"id":"11111111-1111-4111-8111-111111111111","name":"Glass","root":"/absolute/path/to/Glass"}]'
+node apps/execution-node/dist/main.js workspace-add \
+  --id 11111111-1111-4111-8111-111111111111 \
+  --name "Glass" \
+  --root /absolute/path/to/Glass
 node apps/execution-node/dist/main.js connect
 ```
+
+The node starts a loopback-only origin, obtains its proof-bound tunnel configuration, and
+supervises the pinned connector; users never enter an execution URL. `GLASS_EXECUTION_WORKSPACES`
+remains an explicit process-local override for automation.
 
 The node stores its environment-held key and renewable credential in
 `~/.glass/execution-node.json` with owner-only permissions. Override that location with

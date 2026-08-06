@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "prepare": "effect-tsgo patch && vp config --no-agent",
-    "dev": "vp run --filter @glass/web dev",
+    "dev": "node scripts/dev-runner.mjs",
+    "dev:app": "node scripts/dev-runner.mjs",
     "dev:web": "vp run --filter @glass/web dev",
     "dev:desktop": "vp run --filter @glass/desktop dev",
     "dev:mobile": "vp run --filter @glass/mobile dev",
