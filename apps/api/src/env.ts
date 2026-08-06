@@ -101,7 +101,7 @@ export const resolveGlassAuthConfig = (
         ...packagedGlassTrustedOrigins,
         // Expo Go is a development container and returns to exp:// rather than the packaged app
         // scheme. Never broaden staging or production callback trust for that development path.
-        ...(stage === "dev" ? (["exp://**"] as const) : []),
+        ...(stage === "dev" ? (["exp://**", "http://127.0.0.1:*"] as const) : []),
       ],
       secret,
       stage,

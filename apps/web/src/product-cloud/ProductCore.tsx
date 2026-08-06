@@ -39,7 +39,7 @@ const NoteEditor = lazy(() =>
 type ProductViewState =
   | Readonly<{ status: "checking-session" }>
   | Readonly<{ status: "signed-out" }>
-  | Readonly<{ error: string | null; status: "product-only"; userId: string }>
+  | Readonly<{ error: string | null; status: "organization-selection"; userId: string }>
   | Readonly<{ error: string; snapshot: null; status: "offline" }>
   | Readonly<{
       error: string | null;
@@ -313,7 +313,7 @@ export const ProductCore = () => {
             setOrganizationId(recoveredOrganizationId);
             return;
           }
-          setView({ error: null, status: "product-only", userId: session.userId });
+          setView({ error: null, status: "organization-selection", userId: session.userId });
           return;
         }
 
@@ -434,7 +434,11 @@ export const ProductCore = () => {
             !error.boundary.retryable &&
             error.status < 500
           ) {
-            setView({ error: error.message, status: "product-only", userId: session.userId });
+            setView({
+              error: error.message,
+              status: "organization-selection",
+              userId: session.userId,
+            });
             return;
           }
           setView((current) =>
@@ -648,13 +652,10 @@ export const ProductCore = () => {
         </p>
       )}
 
-      {status === "product-only" ? (
+      {status === "organization-selection" ? (
         <section className="state-panel">
-          <h2>Product-only mode</h2>
-          <p>
-            You are signed in to Glass Cloud. Choose an organization; no execution environment is
-            required.
-          </p>
+          <h2>Choose an organization</h2>
+          <p>You are signed in to Glass Cloud.</p>
         </section>
       ) : null}
 

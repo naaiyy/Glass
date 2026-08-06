@@ -8,7 +8,7 @@ The repository builds and verifies applications but does not publish a complete 
 production release. Milestone 2 cloud infrastructure and the Milestone 3 migrations, product API,
 shared web renderer, and Better Auth entry are deployed under the cloud workflow. Development,
 staging, and production each pass a post-deploy convergence plan; production has passed the live
-GitHub authentication and product-only client flow. Desktop signing/notarization, mobile store
+GitHub authentication and cloud-owned client flow. Desktop signing/notarization, mobile store
 credentials, update channels, and release rollback automation remain unconfigured unless their
 real credentials and workflows exist.
 

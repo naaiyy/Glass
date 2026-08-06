@@ -32,6 +32,37 @@ describe("Glass authentication handler", () => {
     expect(handleAuth).toHaveBeenCalledOnce();
   });
 
+  it("restores the local browser origin only at the development auth boundary", async () => {
+    const handleAuth = vi.fn(async (request: Request) =>
+      Response.json({
+        forwardedHost: request.headers.get("x-forwarded-host"),
+        forwardedProtocol: request.headers.get("x-forwarded-proto"),
+        internalHeader: request.headers.get("x-glass-development-origin"),
+        requestOrigin: new URL(request.url).origin,
+      }),
+    );
+    const request = new Request("https://glass.example/api/auth/sign-in/social", {
+      headers: { "x-glass-development-origin": "http://127.0.0.1:5173" },
+      method: "POST",
+    });
+
+    const development = await createGlassAuthHandler(handleAuth, true)(request);
+    await expect(development.json()).resolves.toEqual({
+      forwardedHost: "glass.example",
+      forwardedProtocol: "https",
+      internalHeader: null,
+      requestOrigin: "http://127.0.0.1:5173",
+    });
+
+    const production = await createGlassAuthHandler(handleAuth, false)(request);
+    await expect(production.json()).resolves.toEqual({
+      forwardedHost: null,
+      forwardedProtocol: null,
+      internalHeader: "http://127.0.0.1:5173",
+      requestOrigin: "https://glass.example",
+    });
+  });
+
   it("dispatches the Electron OAuth proxy internally and preserves its cookies", async () => {
     const handleAuth = vi.fn(async (request: Request) => {
       const url = new URL(request.url);
