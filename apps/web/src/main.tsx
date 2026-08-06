@@ -1,6 +1,7 @@
 import { FoundationShell } from "@glass/ui-web/foundation-shell";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { continueDesktopAuthentication } from "./auth-client.ts";
 import { ProductCore } from "./product-cloud/ProductCore.tsx";
 import "@openeditor/ui/styles.css";
 import "./styles.css";
@@ -12,6 +13,8 @@ if (root === null) {
 }
 
 const surface = window.glassDesktop === undefined ? "web" : "desktop";
+
+continueDesktopAuthentication();
 
 createRoot(root).render(
   <StrictMode>

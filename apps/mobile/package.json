@@ -5,6 +5,7 @@
   "scripts": {
     "build": "expo export --platform ios --output-dir dist",
     "dev": "expo start --clear",
+    "dev:ios": "expo run:ios",
     "start": "expo start",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsc --noEmit"

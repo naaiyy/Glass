@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./glass-connect-client": {
+      "types": "./src/glass-connect-client.ts",
+      "import": "./src/glass-connect-client.ts"
+    },
     "./connections": {
       "types": "./src/connections.ts",
       "import": "./src/connections.ts"

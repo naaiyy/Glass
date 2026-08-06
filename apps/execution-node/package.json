@@ -1,18 +1,55 @@
 {
   "name": "@glass/execution-node",
   "private": true,
+  "bin": {
+    "glass-execution-node": "dist/main.js"
+  },
   "type": "module",
+  "exports": {
+    "./connect": {
+      "types": "./src/connect.ts",
+      "import": "./src/connect.ts"
+    },
+    "./cloudflared": {
+      "types": "./src/cloudflared.ts",
+      "import": "./src/cloudflared.ts"
+    },
+    "./execution-handler": {
+      "types": "./src/execution-handler.ts",
+      "import": "./src/execution-handler.ts"
+    },
+    "./identity": {
+      "types": "./src/identity.ts",
+      "import": "./src/identity.ts"
+    },
+    "./frame-delivery-journal": {
+      "types": "./src/frame-delivery-journal.ts",
+      "import": "./src/frame-delivery-journal.ts"
+    },
+    "./tunnel-control": {
+      "types": "./src/tunnel-control.ts",
+      "import": "./src/tunnel-control.ts"
+    },
+    "./tunnel-origin": {
+      "types": "./src/tunnel-origin.ts",
+      "import": "./src/tunnel-origin.ts"
+    }
+  },
   "scripts": {
     "build": "tsgo -p tsconfig.build.json",
     "dev": "node --experimental-strip-types src/main.ts",
-    "start": "node dist/main.js",
+    "start": "node dist/main.js connect",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@glass/contracts": "workspace:*",
     "@glass/execution-core": "workspace:*",
-    "effect": "catalog:"
+    "@types/ws": "8.18.1",
+    "effect": "catalog:",
+    "node-pty": "1.1.0",
+    "tar": "7.5.22",
+    "ws": "8.21.1"
   },
   "devDependencies": {
     "@types/node": "catalog:",

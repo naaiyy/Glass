@@ -1,4 +1,3 @@
-import { initialConnectionState } from "@glass/client-runtime/connections";
 import { createOutboxEngine, type OutboxEnvelope } from "@glass/client-runtime/outbox";
 import { createSyncEngine, type ProductSyncState } from "@glass/client-runtime/sync";
 import { loadProductSnapshot } from "@glass/client-runtime/snapshot";
@@ -24,6 +23,7 @@ import {
   createProjectMutation,
 } from "./product-mutations.ts";
 import { OrganizationDirectory } from "./OrganizationDirectory.tsx";
+import { EnvironmentPanel } from "./EnvironmentPanel.tsx";
 import {
   classifyProductTransportError,
   createProductCloudTransport,
@@ -279,10 +279,12 @@ export const ProductCore = () => {
   const [generation, setGeneration] = useState(0);
   const [selectedNoteId, setSelectedNoteId] = useState<ArtifactId | null>(selectedNote);
   const [sessionActionError, setSessionActionError] = useState<string | null>(null);
+  const [executionStatus, setExecutionStatus] = useState<
+    "connecting" | "not-configured" | "online"
+  >("not-configured");
   const outboxEngineRef = useRef<ReturnType<typeof createOutboxEngine> | null>(null);
   const productStorageRef = useRef<IndexedDbProductStorage | null>(null);
   const syncEngineRef = useRef<ReturnType<typeof createSyncEngine> | null>(null);
-  const execution = initialConnectionState().execution;
 
   useEffect(() => {
     let active = true;
@@ -608,7 +610,7 @@ export const ProductCore = () => {
         </div>
         <div>
           <span>Execution connection</span>
-          <strong>{execution.status}</strong>
+          <strong>{executionStatus}</strong>
           <small>Optional. Product records remain available without it.</small>
         </div>
       </section>
@@ -733,6 +735,14 @@ export const ProductCore = () => {
             </article>
           ))}
         </section>
+      ) : null}
+
+      {"userId" in view && organizationId !== null ? (
+        <EnvironmentPanel
+          organizationId={organizationId}
+          onConnectionStatus={setExecutionStatus}
+          projects={snapshot?.projects ?? []}
+        />
       ) : null}
 
       {snapshot !== null && activeNote !== null ? (

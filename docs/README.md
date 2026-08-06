@@ -1,14 +1,17 @@
 # Glass documentation
 
-Glass documentation is organized by audience. Milestones 0 through 2 establish the architectural
-constitution, runnable monorepo, and deployed Glass Cloud foundation. This repository contains the
-deployed Milestone 3 durable product-core and synchronization implementation. Development,
+Glass documentation is organized by audience. The repository contains the architectural
+constitution, runnable monorepo, deployed Glass Cloud, durable product core, and synchronization implementation. Development,
 staging, and production serve the shared web renderer and product API from one Worker origin, and
-the production Better Auth GitHub lifecycle has passed live verification.
-Environment pairing, Glass Connect, machine execution, production-ready multi-user product
-experiences, and releases remain later milestones unless a page explicitly says otherwise. Editor
-collaboration has no Glass implementation milestone; it remains owned by OpenEditor and arrives in
-Glass only through a coordinated OpenEditor dependency update.
+the production Better Auth GitHub lifecycle has passed live verification. Durable environment trust,
+managed Glass Connect transport, and authorized execution capabilities are implemented and deployed.
+Glass Connect uses remotely managed per-environment Cloudflare Tunnels with a direct client-to-node
+execution data path. Production has passed live environment trust, tunnel, direct WebSocket,
+durable-result, rotation, and provider-cleanup verification.
+Production-ready multi-user product experiences and releases remain later completion gates unless
+a page explicitly says otherwise. Editor collaboration has no Glass implementation milestone; it
+remains owned by OpenEditor and arrives in Glass only through a coordinated OpenEditor dependency
+update.
 
 ## Internals
 
@@ -30,14 +33,16 @@ For maintainers and contributors:
 
 ## Operations
 
+- [Execution node operations](operations/execution-node.md)
+
 For infrastructure, deployment, and release owners:
 
 - [Cloud infrastructure](operations/cloud-infrastructure.md)
+- [Environment publishing operations](operations/environment-publishing.md)
 - [Releases](operations/releases.md)
 
-Milestone 2 cloud provisioning and Milestone 3 web/API deployment are operational as described in
-the cloud runbook. Desktop signing, store publication, and later release workflows are not implied
-by that deployment.
+Cloud provisioning and web/API deployment are operational as described in the cloud runbook.
+Desktop signing, store publication, and later release workflows are not implied by that deployment.
 
 ## User guides
 
@@ -45,4 +50,4 @@ For people using Glass:
 
 - [Remote access](user/remote-access.md)
 
-User guides describe shipped behavior only. The remote-access page currently records availability rather than presenting an unimplemented setup flow.
+User guides describe shipped behavior only.

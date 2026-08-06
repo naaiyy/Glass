@@ -6,6 +6,8 @@ import { createAuthClient } from "better-auth/client";
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
+import { setupDesktopAuthMain, type DesktopAuthMainClient } from "./auth-main.ts";
+
 const desktopDirectory = __dirname;
 const sharedRendererProject = "../../web/dist/index.html";
 const isSmokeTest = process.argv.includes("--glass-smoke-test");
@@ -40,21 +42,16 @@ const electronAuthPlugin = electronClient({
   storage: storage(),
 });
 
-type DesktopAuthClient = Readonly<{
-  getCookie: () => string;
-  setupMain: (input: Readonly<{ getWindow: () => BrowserWindow | null }>) => void;
-}>;
-
 // The integration's runtime and Better Auth versions are pinned together. Their published
 // RequestCache declarations differ under Electron's DOM library, so the cast is isolated here.
 const authClient = createAuthClient({
   baseURL: productCloudOrigin,
   plugins: [electronAuthPlugin] as unknown as BetterAuthClientOptions["plugins"],
-}) as unknown as DesktopAuthClient;
+}) as unknown as DesktopAuthMainClient;
 
 let primaryWindow: BrowserWindow | null = null;
 
-authClient.setupMain({ getWindow: () => primaryWindow });
+setupDesktopAuthMain(authClient, () => primaryWindow);
 
 const maximumDesktopProductBodyBytes = 6 * 1024 * 1024;
 const allowedProductRequest = (input: unknown): input is DesktopProductRequest => {
@@ -64,19 +61,45 @@ const allowedProductRequest = (input: unknown): input is DesktopProductRequest =
     typeof value.path !== "string" ||
     !value.path.startsWith("/v1/") ||
     value.path.startsWith("//") ||
-    !["GET", "POST", "PUT"].includes(String(value.method)) ||
+    !["DELETE", "GET", "POST", "PUT"].includes(String(value.method)) ||
     (value.body !== null && typeof value.body !== "string")
   ) {
     return false;
   }
   const method = value.method;
   const pathname = new URL(value.path, productCloudOrigin).pathname;
+  const environmentMethod =
+    pathname === "/v1/environment-pairings/approve" ||
+    pathname === "/v1/environment-rotations/approve" ||
+    pathname.endsWith("/connect-ticket")
+      ? "POST"
+      : pathname.endsWith("/workspace-catalog")
+        ? "GET"
+        : pathname.startsWith("/v1/environments/") && !pathname.endsWith("/presence")
+          ? "DELETE"
+          : pathname === "/v1/environments" || pathname.endsWith("/presence")
+            ? "GET"
+            : null;
+  const executionMethod =
+    pathname === "/v1/workspace-bindings"
+      ? method === "GET"
+        ? "GET"
+        : "POST"
+      : pathname === "/v1/execution-operations" ||
+          pathname.endsWith("/cancel") ||
+          pathname.endsWith("/dispatch")
+        ? "POST"
+        : pathname.startsWith("/v1/execution-operations/")
+          ? "GET"
+          : null;
   const expectedMethod =
-    pathname === "/v1/sync/push"
+    environmentMethod ??
+    executionMethod ??
+    (pathname === "/v1/sync/push"
       ? "POST"
       : pathname === "/v1/notes/content" && method === "PUT"
         ? "PUT"
-        : "GET";
+        : "GET");
   return (
     method === expectedMethod &&
     (value.body === null ||

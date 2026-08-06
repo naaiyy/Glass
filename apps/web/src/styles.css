@@ -587,6 +587,147 @@ h1 {
   line-height: 1.45;
 }
 
+.execution-console {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+  border-top: 1px solid #31423d;
+  padding-top: 24px;
+}
+
+.execution-console > header,
+.execution-operation > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.execution-console h3,
+.execution-console h4,
+.execution-console p {
+  margin: 0;
+}
+
+.execution-online {
+  border: 1px solid #4a806a;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #9de4c4;
+  font-size: 0.78rem;
+}
+
+.execution-offline {
+  border: 1px solid #786744;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #e4cd9d;
+  font-size: 0.78rem;
+}
+
+.execution-console form,
+.execution-history {
+  display: grid;
+  gap: 12px;
+}
+
+.execution-console form > label,
+.execution-row label {
+  display: grid;
+  gap: 6px;
+  color: #aebbb6;
+  font-size: 0.82rem;
+}
+
+.execution-console input,
+.execution-console select,
+.execution-console textarea,
+.execution-console button {
+  min-width: 0;
+  border: 1px solid #40534c;
+  border-radius: 9px;
+  padding: 9px 10px;
+  color: #eaf0ed;
+  background: #101716;
+  font: inherit;
+}
+
+.execution-console textarea,
+.execution-operation pre {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+.execution-console button {
+  width: fit-content;
+  border-color: #8de0bd;
+  color: #0b1a14;
+  background: #8de0bd;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.execution-console button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.execution-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.execution-check {
+  display: flex !important;
+  align-items: center;
+  grid-template-columns: auto 1fr;
+}
+
+.execution-check input {
+  min-width: auto;
+}
+
+.execution-operation {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #31423d;
+  border-radius: 12px;
+  padding: 12px;
+  background: #101716;
+}
+
+.execution-operation > header span {
+  margin-left: auto;
+  color: #9de4c4;
+}
+
+.execution-operation > header button {
+  border-color: #94675f;
+  color: #f4d1ca;
+  background: #422b27;
+}
+
+.execution-operation small {
+  overflow-wrap: anywhere;
+  color: #89968f;
+}
+
+.execution-operation pre {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  border-radius: 8px;
+  padding: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #0a100f;
+  font-size: 0.78rem;
+}
+
+.execution-error {
+  color: #ffb3a5 !important;
+}
+
 @media (max-width: 680px) {
   .entity-columns {
     grid-template-columns: 1fr;

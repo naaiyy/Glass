@@ -8,6 +8,7 @@
     "dev:web": "vp run --filter @glass/web dev",
     "dev:desktop": "vp run --filter @glass/desktop dev",
     "dev:mobile": "vp run --filter @glass/mobile dev",
+    "dev:mobile:ios": "vp run --filter @glass/mobile dev:ios",
     "dev:api": "vp run --filter @glass/api dev",
     "dev:execution-node": "vp run --filter @glass/execution-node dev",
     "build": "vp run --filter './packages/*' --filter @glass/cloud-infrastructure build && vp run --filter @glass/web build && vp run --filter @glass/desktop --filter @glass/mobile --filter @glass/api --filter @glass/execution-node build",

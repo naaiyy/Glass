@@ -59,6 +59,8 @@ jobs:
       - name: Plan
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          CONNECT_TICKET_SECRET: ${{ secrets.CONNECT_TICKET_SECRET }}
+          CONNECT_TUNNEL_ZONE_NAME: ${{ vars.CONNECT_TUNNEL_ZONE_NAME }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
@@ -78,6 +80,8 @@ jobs:
         if: inputs.operation == 'deploy'
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          CONNECT_TICKET_SECRET: ${{ secrets.CONNECT_TICKET_SECRET }}
+          CONNECT_TUNNEL_ZONE_NAME: ${{ vars.CONNECT_TUNNEL_ZONE_NAME }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}
@@ -97,6 +101,8 @@ jobs:
         if: inputs.operation == 'deploy'
         env:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          CONNECT_TICKET_SECRET: ${{ secrets.CONNECT_TICKET_SECRET }}
+          CONNECT_TUNNEL_ZONE_NAME: ${{ vars.CONNECT_TUNNEL_ZONE_NAME }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           GITHUB_CLIENT_ID: ${{ vars.OAUTH_GITHUB_CLIENT_ID }}

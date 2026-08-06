@@ -1,3 +1,4 @@
+import { electronProxyClient } from "@better-auth/electron/proxy";
 import { createAuthClient } from "better-auth/react";
 
 const apiOrigin = (): string => {
@@ -8,7 +9,20 @@ const apiOrigin = (): string => {
   return new URL(configured).origin;
 };
 
-export const webAuthClient = createAuthClient({ baseURL: apiOrigin() });
+export const webAuthClient = createAuthClient({
+  baseURL: apiOrigin(),
+  plugins: [
+    electronProxyClient({
+      clientID: "glass-desktop",
+      protocol: { scheme: "dev.glass.desktop" },
+    }),
+  ],
+});
+
+export const continueDesktopAuthentication = (): ReturnType<typeof setInterval> | undefined => {
+  if (window.glassDesktop !== undefined) return undefined;
+  return webAuthClient.ensureElectronRedirect();
+};
 
 export const signInWithGitHub = async (): Promise<void> => {
   if (window.glassDesktop !== undefined) {

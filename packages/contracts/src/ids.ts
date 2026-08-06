@@ -6,11 +6,17 @@ type BrandedId<Name extends string> = string & Readonly<{ [idBrand]: Name }>;
 export type ArtifactId = BrandedId<"ArtifactId">;
 export type CommandId = BrandedId<"CommandId">;
 export type EventId = BrandedId<"EventId">;
+export type EnvironmentChallengeId = BrandedId<"EnvironmentChallengeId">;
+export type EnvironmentCredentialId = BrandedId<"EnvironmentCredentialId">;
+export type ExecutionEnvironmentId = BrandedId<"ExecutionEnvironmentId">;
+export type ExecutionOperationId = BrandedId<"ExecutionOperationId">;
 export type MessageId = BrandedId<"MessageId">;
 export type OrganizationId = BrandedId<"OrganizationId">;
 export type ProjectId = BrandedId<"ProjectId">;
 export type ThreadId = BrandedId<"ThreadId">;
 export type UserId = BrandedId<"UserId">;
+export type WorkspaceCheckpointId = BrandedId<"WorkspaceCheckpointId">;
+export type WorkspaceId = BrandedId<"WorkspaceId">;
 
 export type IsoDateTime = string & Readonly<{ [idBrand]: "IsoDateTime" }>;
 export type MessageOrdinal = string & Readonly<{ [idBrand]: "MessageOrdinal" }>;
