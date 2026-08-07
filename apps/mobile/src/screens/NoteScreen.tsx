@@ -2,8 +2,9 @@ import type { ArtifactId } from "@glass/contracts/ids";
 import type { NoteArtifact } from "@glass/contracts/product";
 import type { OpenEditorDocument } from "@openeditor/core";
 import { OpenEditorNative, type OpenEditorNativeController } from "@openeditor/native";
+import { usePreventRemove } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Text, View } from "react-native";
 
 import { mobileAuthenticatedFetch } from "../cloud/auth-client.ts";
@@ -24,6 +25,18 @@ type NoteSaveState =
   | Readonly<{ status: "saved" }>
   | Readonly<{ status: "saving" }>
   | Readonly<{ error: string; status: "error" }>;
+
+const SavedNoteHeaderStatus = () => <Text className="text-sm text-muted-foreground">Saved</Text>;
+
+const SavingNoteHeaderStatus = () => <Text className="text-sm text-muted-foreground">Saving…</Text>;
+
+const FailedNoteHeaderStatus = () => <Text className="text-sm text-destructive">Save failed</Text>;
+
+const noteHeaderStatus = {
+  error: FailedNoteHeaderStatus,
+  saved: SavedNoteHeaderStatus,
+  saving: SavingNoteHeaderStatus,
+} as const;
 
 export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootStack, "Note">) => {
   const snapshot = useProductCloudState().view.snapshot;
@@ -46,7 +59,6 @@ export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootSta
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
   const flushInFlight = useRef<Promise<void> | null>(null);
-  const allowLeave = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -157,20 +169,11 @@ export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootSta
     return () => subscription.remove();
   }, [flush]);
 
-  useEffect(
-    () =>
-      navigation.addListener("beforeRemove", (event) => {
-        if (allowLeave.current || controller.current === null) return;
-        event.preventDefault();
-        void flush()
-          .then(() => {
-            allowLeave.current = true;
-            navigation.dispatch(event.data.action);
-          })
-          .catch((error: unknown) => setSaveState({ error: errorMessage(error), status: "error" }));
-      }),
-    [flush, navigation],
-  );
+  usePreventRemove(loadState.status === "ready", ({ data }) => {
+    void flush()
+      .then(() => navigation.dispatch(data.action))
+      .catch((error: unknown) => setSaveState({ error: errorMessage(error), status: "error" }));
+  });
 
   useEffect(
     () => () => {
@@ -178,6 +181,19 @@ export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootSta
     },
     [],
   );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: noteHeaderStatus[saveState.status],
+      headerShadowVisible: false,
+      title:
+        note === undefined
+          ? "Note unavailable"
+          : note.icon === null
+            ? note.name
+            : `${note.icon} ${note.name}`,
+    });
+  }, [navigation, note, saveState.status]);
 
   if (note === undefined) {
     return (
@@ -188,26 +204,19 @@ export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootSta
   }
 
   return (
-    <View style={styles.noteScreen}>
-      <View style={styles.noteStatusRow}>
-        <Text numberOfLines={1} style={styles.noteTitle}>
-          {note.icon === null ? note.name : `${note.icon} ${note.name}`}
-        </Text>
-        <Text style={saveState.status === "error" ? styles.error : styles.muted}>
-          {saveState.status === "saved" ? "Saved" : null}
-          {saveState.status === "saving" ? "Saving…" : null}
-          {saveState.status === "error" ? saveState.error : null}
-        </Text>
-      </View>
+    <View className="flex-1 bg-background">
       {saveState.status === "error" ? (
-        <ActionButton
-          label="Retry save"
-          onPress={() =>
-            void flush().catch((error: unknown) =>
-              setSaveState({ error: errorMessage(error), status: "error" }),
-            )
-          }
-        />
+        <View className="px-4 pb-2">
+          <Text className="text-sm text-destructive">{saveState.error}</Text>
+          <ActionButton
+            label="Retry save"
+            onPress={() =>
+              void flush().catch((error: unknown) =>
+                setSaveState({ error: errorMessage(error), status: "error" }),
+              )
+            }
+          />
+        </View>
       ) : null}
       {loadState.status === "loading" ? (
         <View style={styles.noteState}>
@@ -238,6 +247,7 @@ export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootSta
           placeholder="Start writing…"
           ref={controller}
           style={styles.noteEditor}
+          webViewProps={{ contentInsetAdjustmentBehavior: "automatic" }}
         />
       ) : null}
     </View>

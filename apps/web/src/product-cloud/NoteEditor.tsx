@@ -1,10 +1,13 @@
 import type { NoteArtifact } from "@glass/contracts/product";
 import type { NoteContentResponse } from "@glass/contracts/notes";
 import type { OpenEditorDocument } from "@openeditor/core";
-import { OpenEditor } from "@openeditor/ui";
+import { OpenEditor, type OpenEditorTheme } from "@openeditor/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Button } from "~/components/ui/button";
 import { createProductCloudTransport } from "./transport.ts";
+import { WorkspaceHeaderContent } from "./WorkspaceHeader.tsx";
 
 const saveDelayMs = 800;
 const enabledBlocks = [
@@ -35,6 +38,43 @@ type SaveState =
 
 const messageFrom = (error: unknown): string =>
   error instanceof Error ? error.message : "Glass Cloud could not save this note.";
+
+const openEditorTheme = {
+  surface: "var(--background)",
+  surfaceRaised: "var(--popover)",
+  surfaceMuted: "var(--muted)",
+  interactionHover: "var(--accent)",
+  interactionSelected: "var(--secondary)",
+  blockSurface: "var(--card)",
+  text: "var(--foreground)",
+  textSoft: "var(--muted-foreground)",
+  heading: "var(--foreground)",
+  muted: "var(--muted-foreground)",
+  placeholder: "var(--muted-foreground)",
+  border: "var(--border)",
+  borderStrong: "var(--input)",
+  structuralLine: "var(--border)",
+  accent: "var(--primary)",
+  accentText: "var(--primary-foreground)",
+  accentStrong: "var(--ring)",
+  buttonBackground: "var(--primary)",
+  buttonText: "var(--primary-foreground)",
+  codeBackground: "var(--muted)",
+  codeText: "var(--foreground)",
+  link: "var(--foreground)",
+  linkHover: "var(--muted-foreground)",
+  shadow: "0 12px 32px oklch(0 0 0 / 0.16)",
+  fontSans: "var(--font-sans)",
+  fontMono: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+  radiusSmall: "var(--radius-sm)",
+  radiusMedium: "var(--radius-md)",
+  radiusLarge: "var(--radius-lg)",
+  bodyFontSize: "1rem",
+  bodyLineHeight: "1.65",
+  headingFont: "var(--font-sans)",
+  headingLineHeight: "1.2",
+  headingWeight: "650",
+} satisfies OpenEditorTheme;
 
 export const NoteEditor = ({ note, onClose }: { note: NoteArtifact; onClose: () => void }) => {
   const transport = useMemo(
@@ -153,55 +193,68 @@ export const NoteEditor = ({ note, onClose }: { note: NoteArtifact; onClose: () 
   };
 
   return (
-    <section className="note-workspace" aria-label={`Note: ${note.name}`}>
-      <header className="note-header">
-        <button
-          className="note-back"
+    <section className="mt-4" aria-label={`Note: ${note.name}`}>
+      <WorkspaceHeaderContent>
+        <Button
           disabled={closing}
           onClick={() => void closeSafely()}
+          size="sm"
           type="button"
+          variant="ghost"
         >
           {closing ? "Saving…" : "Back to workspace"}
-        </button>
-        <div>
-          <p className="section-label">Note</p>
-          <h2>{note.name}</h2>
-        </div>
-        <div className={`note-save-state note-save-state-${saveState.status}`} role="status">
+        </Button>
+        <span aria-hidden="true" className="h-4 w-px bg-border" />
+        <h1 className="min-w-0 truncate text-sm font-semibold">{note.name}</h1>
+        <div
+          className={`ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground note-save-state-${saveState.status}`}
+          role="status"
+        >
           {saveState.status === "saved" ? "Saved" : null}
           {saveState.status === "saving" ? "Saving…" : null}
           {saveState.status === "error" ? (
             <>
-              <span>{saveState.error}</span>
-              <button onClick={() => void savePending().catch(() => undefined)} type="button">
+              <span className="max-w-64 truncate text-destructive">{saveState.error}</span>
+              <Button
+                onClick={() => void savePending().catch(() => undefined)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
                 Retry
-              </button>
+              </Button>
             </>
           ) : null}
         </div>
-      </header>
+      </WorkspaceHeaderContent>
 
-      {loadState.status === "loading" ? <p className="state-panel">Loading note…</p> : null}
+      {loadState.status === "loading" ? (
+        <p className="py-12 text-center text-sm text-muted-foreground">Loading note…</p>
+      ) : null}
       {loadState.status === "error" ? (
-        <section className="offline-banner">
-          <p>{loadState.error}</p>
-          <button
-            className="retry-button"
+        <Alert variant="destructive">
+          <AlertDescription>{loadState.error}</AlertDescription>
+          <Button
+            className="mt-3"
             onClick={() => setLoadGeneration((value) => value + 1)}
+            size="sm"
             type="button"
+            variant="outline"
           >
             Retry load
-          </button>
-        </section>
+          </Button>
+        </Alert>
       ) : null}
       {loadState.status === "ready" ? (
         <OpenEditor
+          className="note-editor-surface"
           contentClassName="note-editor-content"
           enabledBlocks={enabledBlocks}
           initialDocument={loadState.response.content}
           key={note.id}
           onChange={scheduleSave}
           placeholder="Start writing…"
+          theme={openEditorTheme}
         />
       ) : null}
     </section>
