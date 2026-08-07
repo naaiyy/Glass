@@ -55,7 +55,6 @@ export type OrganizationMember = Readonly<{
 
 export type Project = Readonly<{
   createdAt: IsoDateTime;
-  description: string | null;
   id: ProjectId;
   name: string;
   organizationId: OrganizationId;
@@ -229,7 +228,7 @@ export const decodeProductEntity = (
       "userId",
       "version",
     ],
-    project: ["createdAt", "description", "id", "name", "organizationId", "updatedAt", "version"],
+    project: ["createdAt", "id", "name", "organizationId", "updatedAt", "version"],
     thread: ["createdAt", "id", "organizationId", "projectId", "title", "updatedAt", "version"],
     message: [
       "authorUserId",
@@ -296,21 +295,11 @@ export const decodeProductEntity = (
       : decodeId<ProjectId>(record.value.projectId, `${path}.projectId`);
   if (!projectId.ok) return projectId;
   if (entityType === "project") {
-    const description = decodeNullableString(
-      record.value.description,
-      `${path}.description`,
-      4_000,
-    );
-    if (!name.ok || !description.ok)
-      return {
-        ok: false,
-        issues: [...(!name.ok ? name.issues : []), ...(!description.ok ? description.issues : [])],
-      };
+    if (!name.ok) return name;
     return decodeSuccess({
       ...common.value,
       id: projectId.value,
       name: name.value,
-      description: description.value,
     });
   }
   if (entityType === "thread") {

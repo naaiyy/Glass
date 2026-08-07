@@ -82,13 +82,11 @@ describe("mobile product transport policy", () => {
 
     const projectIds = [projectId, commandId][Symbol.iterator]();
     expect(
-      createProjectMutation(
-        { description: null, name: "Core", organizationId },
-        () => projectIds.next().value ?? "",
-      ).mutation,
+      createProjectMutation({ name: "Core", organizationId }, () => projectIds.next().value ?? "")
+        .mutation,
     ).toEqual({
       commandId,
-      operation: { description: null, kind: "project.create", name: "Core", projectId },
+      operation: { kind: "project.create", name: "Core", projectId },
       organizationId,
     });
   });

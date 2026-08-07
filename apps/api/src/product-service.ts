@@ -308,7 +308,6 @@ const projectFromRow = (row: QueryResultRow): Project => ({
   id: row.id as Project["id"],
   organizationId: row.organization_id as OrganizationId,
   name: String(row.name),
-  description: row.description === null ? null : String(row.description),
   version: Number(row.version),
   createdAt: asIsoDateTime(row.created_at as Date | string),
   updatedAt: asIsoDateTime(row.updated_at as Date | string),
@@ -603,11 +602,11 @@ const applyOperation = async (
     const row = await queryOne<QueryResultRow>(
       client,
       `insert into projects
-         (id, organization_id, name, description, version, created_by_user_id, created_at, updated_at)
-       values ($1, $2, $3, $4, 1, $5, now(), now())
+         (id, organization_id, name, version, created_by_user_id, created_at, updated_at)
+       values ($1, $2, $3, 1, $4, now(), now())
        on conflict do nothing
-       returning id, organization_id, name, description, version, created_at, updated_at`,
-      [operation.projectId, organizationId, operation.name, operation.description, actorUserId],
+       returning id, organization_id, name, version, created_at, updated_at`,
+      [operation.projectId, organizationId, operation.name, actorUserId],
     );
     if (row === null)
       throw new ProductFailure("conflict", "The project identifier is already in use.");
@@ -631,18 +630,12 @@ const applyOperation = async (
         ? `update projects set archived_at = now(), updated_at = now(), version = version + 1
              where organization_id = $1 and id = $2 and version = $3 and archived_at is null
            returning version`
-        : `update projects set name = $4, description = $5, updated_at = now(), version = version + 1
+        : `update projects set name = $4, updated_at = now(), version = version + 1
              where organization_id = $1 and id = $2 and version = $3 and archived_at is null
-           returning id, organization_id, name, description, version, created_at, updated_at`,
+           returning id, organization_id, name, version, created_at, updated_at`,
       deleting
         ? [organizationId, operation.projectId, operation.expectedVersion]
-        : [
-            organizationId,
-            operation.projectId,
-            operation.expectedVersion,
-            operation.name,
-            operation.description,
-          ],
+        : [organizationId, operation.projectId, operation.expectedVersion, operation.name],
     );
     if (row === null) return conflict(client, mutation, "projects", operation.projectId);
     const version = Number(row.version);
@@ -1561,10 +1554,9 @@ export const createPostgresProductService = (client: Client): ProductService => 
            select first_project.*, 1::integer as page_count,
                   first_project.conservative_wire_bytes as cumulative_wire_bytes
              from lateral (
-               select p.id, p.organization_id, p.name, p.description, p.version,
+               select p.id, p.organization_id, p.name, p.version,
                       p.created_at, p.updated_at,
-                      (octet_length(p.id) + octet_length(p.name)
-                        + octet_length(coalesce(p.description, '')) + 1024)::bigint
+                      (octet_length(p.id) + octet_length(p.name) + 1024)::bigint
                         as conservative_wire_bytes
                  from projects p
                 where p.organization_id = $1 and p.archived_at is null and p.id > $3
@@ -1581,10 +1573,9 @@ export const createPostgresProductService = (client: Client): ProductService => 
                   page.cumulative_wire_bytes + next_project.conservative_wire_bytes
              from page
              cross join lateral (
-               select p.id, p.organization_id, p.name, p.description, p.version,
+               select p.id, p.organization_id, p.name, p.version,
                       p.created_at, p.updated_at,
-                      (octet_length(p.id) + octet_length(p.name)
-                        + octet_length(coalesce(p.description, '')) + 1024)::bigint
+                      (octet_length(p.id) + octet_length(p.name) + 1024)::bigint
                         as conservative_wire_bytes
                  from projects p
                 where p.organization_id = $1 and p.archived_at is null and p.id > page.id
@@ -1598,7 +1589,7 @@ export const createPostgresProductService = (client: Client): ProductService => 
             where page.page_count < $4
               and page.cumulative_wire_bytes + next_project.conservative_wire_bytes <= $5
          )
-         select id, organization_id, name, description, version, created_at, updated_at,
+         select id, organization_id, name, version, created_at, updated_at,
                 cumulative_wire_bytes
            from page order by id`,
         [request.organizationId, requestedHead.toString(), simpleAfter("project")],

@@ -373,7 +373,7 @@ describe("Glass Cloud API boundary", () => {
             {
               commandId,
               organizationId: otherOrganizationId,
-              operation: { kind: "project.create", projectId, name: "Project", description: null },
+              operation: { kind: "project.create", projectId, name: "Project" },
             },
           ],
         }),
@@ -670,7 +670,7 @@ describe("Glass Cloud API boundary", () => {
         {
           commandId,
           organizationId,
-          operation: { kind: "project.create", projectId, name: "Project", description: null },
+          operation: { kind: "project.create", projectId, name: "Project" },
         },
       ],
     };
@@ -812,7 +812,6 @@ describe("Glass Cloud API boundary", () => {
                 kind: "project.create",
                 projectId,
                 name: "Project",
-                description: null,
               },
             },
           ],

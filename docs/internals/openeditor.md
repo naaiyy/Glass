@@ -31,7 +31,7 @@ milestone.
 
 ## Stack decision
 
-The coordinated integration target is OpenEditor `0.0.34`, pinned exactly because the packages are
+The coordinated integration target is OpenEditor `0.0.35`, pinned exactly because the packages are
 pre-1.0:
 
 - `@openeditor/core` for the portable document contract and validation;

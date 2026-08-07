@@ -6,6 +6,7 @@ import type {
   CommandId,
   OrganizationId,
   ProjectId,
+  ThreadId,
   UserId,
 } from "@glass/contracts/ids";
 import type { OrganizationMembershipItem } from "@glass/contracts/organizations";
@@ -27,9 +28,11 @@ import {
   signOut as mobileSignOut,
 } from "../cloud/auth-client.ts";
 import {
+  createMessageMutation,
   createNoteMutation,
   createOrganizationBootstrapEnvelope,
   createProjectMutation,
+  createThreadMutation,
 } from "../cloud/product-mutations.ts";
 import {
   clearActiveOrganization,
@@ -387,7 +390,7 @@ const useProductCloudRuntime = () => {
       });
       setGeneration((value) => value + 1);
     },
-    createProject: async (name: string, description: string | null): Promise<ProjectId> => {
+    createProject: async (name: string): Promise<ProjectId> => {
       const engine = outboxEngine.current;
       const sync = syncEngine.current;
       const storage = productStorage.current;
@@ -395,7 +398,7 @@ const useProductCloudRuntime = () => {
       if (engine === null || sync === null || storage === null || organizationId === undefined) {
         throw new Error("Glass Cloud must be live before creating a project.");
       }
-      const created = createProjectMutation({ description, name, organizationId }, randomUUID);
+      const created = createProjectMutation({ name, organizationId }, randomUUID);
       await engine.enqueue(created.mutation);
       await drainThenSynchronize(engine.drain, sync.synchronize);
       if (
@@ -434,6 +437,56 @@ const useProductCloudRuntime = () => {
         throw new Error("The created note is not in the confirmed snapshot yet.");
       }
       return created.noteId;
+    },
+    createThread: async (projectId: ProjectId, title: string | null): Promise<ThreadId> => {
+      const engine = outboxEngine.current;
+      const sync = syncEngine.current;
+      const storage = productStorage.current;
+      const organizationId = view.scope?.organizationId;
+      if (engine === null || sync === null || storage === null || organizationId === undefined) {
+        throw new Error("Glass Cloud must be live before creating a thread.");
+      }
+      const created = createThreadMutation({ organizationId, projectId, title }, randomUUID);
+      await engine.enqueue(created.mutation);
+      await drainThenSynchronize(engine.drain, sync.synchronize);
+      if (
+        engine.getSnapshot().some((item) => item.mutation.commandId === created.mutation.commandId)
+      ) {
+        throw new Error("The thread is queued for Glass Cloud. Reconnect to finish creating it.");
+      }
+      const latest = await storage.loadSnapshot();
+      if (latest?.threads.some((thread) => thread.id === created.threadId) !== true) {
+        throw new Error("The created thread is not in the confirmed snapshot yet.");
+      }
+      return created.threadId;
+    },
+    createMessage: async (
+      projectId: ProjectId,
+      threadId: ThreadId,
+      body: string,
+    ): Promise<void> => {
+      const engine = outboxEngine.current;
+      const sync = syncEngine.current;
+      const storage = productStorage.current;
+      const organizationId = view.scope?.organizationId;
+      if (engine === null || sync === null || storage === null || organizationId === undefined) {
+        throw new Error("Glass Cloud must be live before sending a message.");
+      }
+      const created = createMessageMutation(
+        { body, organizationId, projectId, threadId },
+        randomUUID,
+      );
+      await engine.enqueue(created.mutation);
+      await drainThenSynchronize(engine.drain, sync.synchronize);
+      if (
+        engine.getSnapshot().some((item) => item.mutation.commandId === created.mutation.commandId)
+      ) {
+        throw new Error("The message is queued for Glass Cloud. Reconnect to finish sending it.");
+      }
+      const latest = await storage.loadSnapshot();
+      if (latest?.messages.some((message) => message.id === created.messageId) !== true) {
+        throw new Error("The sent message is not in the confirmed snapshot yet.");
+      }
     },
     outbox,
     organizations,
@@ -560,8 +613,10 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
   const actions = useMemo<ProductCloudActions>(
     () => ({
       bootstrapOrganization: cloud.bootstrapOrganization,
+      createMessage: cloud.createMessage,
       createNote: cloud.createNote,
       createProject: cloud.createProject,
+      createThread: cloud.createThread,
       discardOutboxItem: cloud.discardOutboxItem,
       loadMoreOrganizations: cloud.loadMoreOrganizations,
       retry: cloud.retry,
@@ -572,8 +627,10 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
     }),
     [
       cloud.bootstrapOrganization,
+      cloud.createMessage,
       cloud.createNote,
       cloud.createProject,
+      cloud.createThread,
       cloud.discardOutboxItem,
       cloud.loadMoreOrganizations,
       cloud.retry,

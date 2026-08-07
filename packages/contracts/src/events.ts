@@ -39,13 +39,11 @@ export type ProductOperation =
     }>
   | Readonly<{ expectedVersion: number; kind: "member.remove"; userId: UserId }>
   | Readonly<{
-      description: string | null;
       kind: "project.create";
       name: string;
       projectId: ProjectId;
     }>
   | Readonly<{
-      description: string | null;
       expectedVersion: number;
       kind: "project.update";
       name: string;
@@ -148,8 +146,8 @@ export const decodeProductOperation = (
     "organization.update": ["expectedVersion", "kind", "name"],
     "member.put": ["expectedVersion", "kind", "role", "userId"],
     "member.remove": ["expectedVersion", "kind", "userId"],
-    "project.create": ["description", "kind", "name", "projectId"],
-    "project.update": ["description", "expectedVersion", "kind", "name", "projectId"],
+    "project.create": ["kind", "name", "projectId"],
+    "project.update": ["expectedVersion", "kind", "name", "projectId"],
     "project.delete": ["expectedVersion", "kind", "projectId"],
     "thread.create": ["kind", "projectId", "threadId", "title"],
     "thread.update": ["expectedVersion", "kind", "threadId", "title"],
@@ -247,27 +245,20 @@ export const decodeProductOperation = (
         : version;
     }
     const n = name();
-    const description = decodeNullableString(
-      record.value.description,
-      `${path}.description`,
-      4_000,
-    );
     const version = kind.value === "project.update" ? expected() : decodeSuccess(1);
-    const issues = issuesOf([n, description, version]);
+    const issues = issuesOf([n, version]);
     if (issues.length > 0) return { ok: false, issues };
-    if (n.ok && description.ok && version.ok) {
+    if (n.ok && version.ok) {
       return kind.value === "project.create"
         ? decodeSuccess({
             kind: kind.value,
             projectId: id.value,
             name: n.value,
-            description: description.value,
           })
         : decodeSuccess({
             kind: "project.update",
             projectId: id.value,
             name: n.value,
-            description: description.value,
             expectedVersion: version.value,
           });
     }

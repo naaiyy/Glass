@@ -1,7 +1,7 @@
 import { createOutboxEngine, type OutboxEnvelope } from "@glass/client-runtime/outbox";
 import { loadProductSnapshot } from "@glass/client-runtime/snapshot";
 import { createSyncEngine, type ProductSyncState } from "@glass/client-runtime/sync";
-import type { CommandId, OrganizationId, ProjectId, UserId } from "@glass/contracts/ids";
+import type { CommandId, OrganizationId, ProjectId, ThreadId, UserId } from "@glass/contracts/ids";
 import type { NoteArtifact } from "@glass/contracts/product";
 import type { ProductSnapshot } from "@glass/contracts/sync";
 import {
@@ -25,9 +25,11 @@ import {
   saveOrganizationBootstrap,
 } from "./indexed-db.ts";
 import {
+  createMessageMutation,
   createNoteMutation,
   createOrganizationBootstrapEnvelope,
   createProjectMutation,
+  createThreadMutation,
 } from "./product-mutations.ts";
 import {
   classifyProductTransportError,
@@ -51,8 +53,10 @@ export type ProductViewState =
 
 export type ProductCloudContextValue = Readonly<{
   bootstrapOrganization: (name: string) => Promise<void>;
+  createMessage: (projectId: ProjectId, threadId: ThreadId, body: string) => Promise<void>;
   createNote: (projectId: ProjectId, name: string) => Promise<NoteArtifact>;
-  createProject: (name: string, description: string | null) => Promise<void>;
+  createProject: (name: string) => Promise<ProjectId>;
+  createThread: (projectId: ProjectId, title: string | null) => Promise<ThreadId>;
   discardOutboxItem: (commandId: CommandId) => Promise<void>;
   organizationId: OrganizationId | null;
   outbox: readonly OutboxEnvelope[];
@@ -301,7 +305,7 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
   );
 
   const createProject = useCallback(
-    async (name: string, description: string | null): Promise<void> => {
+    async (name: string): Promise<ProjectId> => {
       if (organizationId === null) throw new Error("Choose an organization first.");
       const engine = outboxEngineRef.current;
       const sync = syncEngineRef.current;
@@ -309,7 +313,7 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
       if (engine === null || sync === null || storage === null) {
         throw new Error("Glass Cloud must be live before creating a project.");
       }
-      const created = createProjectMutation({ description, name, organizationId });
+      const created = createProjectMutation({ name, organizationId });
       await engine.enqueue(created.mutation);
       await drainThenSynchronize(engine.drain, sync.synchronize);
       if (
@@ -320,6 +324,58 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
       const latest = await storage.loadSnapshot();
       if (latest?.projects.some((project) => project.id === created.projectId) !== true) {
         throw new Error("The created project is not confirmed yet.");
+      }
+      return created.projectId;
+    },
+    [organizationId],
+  );
+
+  const createThread = useCallback(
+    async (projectId: ProjectId, title: string | null): Promise<ThreadId> => {
+      if (organizationId === null) throw new Error("Choose an organization first.");
+      const engine = outboxEngineRef.current;
+      const sync = syncEngineRef.current;
+      const storage = productStorageRef.current;
+      if (engine === null || sync === null || storage === null) {
+        throw new Error("Glass Cloud must be live before creating a thread.");
+      }
+      const created = createThreadMutation({ organizationId, projectId, title });
+      await engine.enqueue(created.mutation);
+      await drainThenSynchronize(engine.drain, sync.synchronize);
+      if (
+        engine.getSnapshot().some((item) => item.mutation.commandId === created.mutation.commandId)
+      ) {
+        throw new Error("The thread is queued for Glass Cloud. Reconnect to finish creating it.");
+      }
+      const latest = await storage.loadSnapshot();
+      if (latest?.threads.some((thread) => thread.id === created.threadId) !== true) {
+        throw new Error("The created thread is not confirmed yet.");
+      }
+      return created.threadId;
+    },
+    [organizationId],
+  );
+
+  const createMessage = useCallback(
+    async (projectId: ProjectId, threadId: ThreadId, body: string): Promise<void> => {
+      if (organizationId === null) throw new Error("Choose an organization first.");
+      const engine = outboxEngineRef.current;
+      const sync = syncEngineRef.current;
+      const storage = productStorageRef.current;
+      if (engine === null || sync === null || storage === null) {
+        throw new Error("Glass Cloud must be live before sending a message.");
+      }
+      const created = createMessageMutation({ body, organizationId, projectId, threadId });
+      await engine.enqueue(created.mutation);
+      await drainThenSynchronize(engine.drain, sync.synchronize);
+      if (
+        engine.getSnapshot().some((item) => item.mutation.commandId === created.mutation.commandId)
+      ) {
+        throw new Error("The message is queued for Glass Cloud. Reconnect to finish sending it.");
+      }
+      const latest = await storage.loadSnapshot();
+      if (latest?.messages.some((message) => message.id === created.messageId) !== true) {
+        throw new Error("The sent message is not confirmed yet.");
       }
     },
     [organizationId],
@@ -395,8 +451,10 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
   const value = useMemo<ProductCloudContextValue>(
     () => ({
       bootstrapOrganization,
+      createMessage,
       createNote,
       createProject,
+      createThread,
       discardOutboxItem,
       organizationId,
       outbox,
@@ -409,8 +467,10 @@ export const ProductCloudProvider = ({ children }: Readonly<{ children: ReactNod
     }),
     [
       bootstrapOrganization,
+      createMessage,
       createNote,
       createProject,
+      createThread,
       discardOutboxItem,
       organizationId,
       outbox,

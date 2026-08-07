@@ -328,7 +328,6 @@ export const projects = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    description: text("description"),
     version: integer("version").default(1).notNull(),
     createdByUserId: text("created_by_user_id")
       .notNull()

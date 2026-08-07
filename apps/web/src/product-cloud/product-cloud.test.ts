@@ -108,7 +108,6 @@ const snapshot = (): ProductSnapshot => ({
   projects: [
     {
       createdAt: timestamp,
-      description: null,
       id: projectId,
       name: "Project",
       organizationId,
@@ -264,13 +263,12 @@ describe("web product-cloud adapters", () => {
 
     const projectIds = [projectId, commandId][Symbol.iterator]();
     const project = createProjectMutation(
-      { description: "Durable", name: "Core", organizationId },
+      { name: "Core", organizationId },
       () => projectIds.next().value ?? "",
     );
     expect(project.mutation).toEqual({
       commandId,
       operation: {
-        description: "Durable",
         kind: "project.create",
         name: "Core",
         projectId,
@@ -480,7 +478,6 @@ describe("web product-cloud adapters", () => {
           {
             commandId,
             operation: {
-              description: null,
               kind: "project.create",
               name: "Project",
               projectId,

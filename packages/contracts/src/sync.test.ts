@@ -41,7 +41,6 @@ const projectUpdate = {
     projectId,
     expectedVersion: 7,
     name: "Architecture",
-    description: "Durable cloud state",
   },
 };
 
@@ -335,7 +334,6 @@ describe("Glass product snapshot contracts", () => {
       id: projectId,
       organizationId,
       name: "Project",
-      description: null,
       version: 1,
       createdAt: "2026-08-02T12:00:00.000Z",
       updatedAt: "2026-08-02T12:00:00.000Z",
@@ -371,8 +369,8 @@ describe("Glass product snapshot contracts", () => {
       updatedAt: "2026-08-02T12:00:00.000Z",
     };
     const projects = [
-      { ...baseRecord, id: projectId, name: "One", description: null },
-      { ...baseRecord, id: secondProjectId, name: "Two", description: null },
+      { ...baseRecord, id: projectId, name: "One" },
+      { ...baseRecord, id: secondProjectId, name: "Two" },
     ];
     const threads = [{ ...baseRecord, id: threadId, projectId, title: null }];
     expect(
@@ -473,7 +471,7 @@ describe("Glass product snapshot contracts", () => {
     };
     const firstThread = "77777777-7777-4777-8777-777777777777";
     const secondThread = "88888888-8888-4888-8888-888888888888";
-    const projects = [{ ...base, id: projectId, name: "Project", description: null }];
+    const projects = [{ ...base, id: projectId, name: "Project" }];
     const threads = [
       { ...base, id: firstThread, projectId, title: null },
       { ...base, id: secondThread, projectId, title: null },
