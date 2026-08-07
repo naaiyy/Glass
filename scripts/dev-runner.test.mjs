@@ -2,6 +2,7 @@ import { assert, describe, it } from "vite-plus/test";
 
 import {
   parseDevelopmentSurface,
+  parseMetroPort,
   parseWebPort,
   resolveCloudOrigin,
   resolveLaunchConfiguration,
@@ -82,6 +83,13 @@ describe("Glass development launcher", () => {
     assert.throws(() => parseWebPort("not-a-port"), /GLASS_DEV_WEB_PORT/u);
     assert.equal(parseWebPort("65535"), 65_535);
     assert.throws(() => parseWebPort("65536"), /GLASS_DEV_WEB_PORT/u);
+  });
+
+  it("validates an explicit Metro port before spawning Expo", () => {
+    assert.equal(parseMetroPort(undefined), 8081);
+    assert.equal(parseMetroPort("8099"), 8099);
+    assert.throws(() => parseMetroPort("none"), /GLASS_DEV_METRO_PORT/u);
+    assert.throws(() => parseMetroPort("0"), /GLASS_DEV_METRO_PORT/u);
   });
 
   it("accepts only safe Glass Cloud origins", () => {

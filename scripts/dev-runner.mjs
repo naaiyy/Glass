@@ -19,6 +19,7 @@ const defaultIdentityPath = NodePath.join(
   "execution-node.json",
 );
 const defaultWebPort = 5173;
+const defaultMetroPort = 8081;
 const maximumPort = 65_535;
 const portScanRange = 100;
 const surfaces = new Set(["web", "desktop", "mobile", "mobile-ios"]);
@@ -33,14 +34,18 @@ export function parseDevelopmentSurface(input) {
   return surface;
 }
 
-export function parseWebPort(input) {
-  if (input === undefined || input.trim() === "") return defaultWebPort;
+function parsePort(input, fallback, variable) {
+  if (input === undefined || input.trim() === "") return fallback;
   const port = Number(input);
   if (!Number.isInteger(port) || port < 1 || port > maximumPort) {
-    throw new Error(`GLASS_DEV_WEB_PORT must be an integer from 1 to ${maximumPort}.`);
+    throw new Error(`${variable} must be an integer from 1 to ${maximumPort}.`);
   }
   return port;
 }
+
+export const parseWebPort = (input) => parsePort(input, defaultWebPort, "GLASS_DEV_WEB_PORT");
+
+export const parseMetroPort = (input) => parsePort(input, defaultMetroPort, "GLASS_DEV_METRO_PORT");
 
 export function resolveCloudOrigin(input) {
   const url = new URL(input);
@@ -130,20 +135,20 @@ function canListen(port) {
     const server = NodeNet.createServer();
     server.unref();
     server.once("error", () => resolve(false));
-    server.listen({ host: "127.0.0.1", port }, () => {
+    server.listen({ port }, () => {
       server.close(() => resolve(true));
     });
   });
 }
 
-export async function findAvailableWebPort(start = defaultWebPort) {
+export async function findAvailablePort(start) {
   const end = Math.min(maximumPort, start + portScanRange);
   for (let port = start; port <= end; port += 1) {
     // Port selection is deliberately sequential so parallel worktrees cannot fan out listeners.
     // eslint-disable-next-line no-await-in-loop
     if (await canListen(port)) return port;
   }
-  throw new Error(`No Glass web development port is available from ${start} to ${end}.`);
+  throw new Error(`No development port is available from ${start} to ${end}.`);
 }
 
 async function waitForHttp(origin, timeoutMs = 30_000) {
@@ -221,7 +226,7 @@ async function main() {
       if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
     }
   };
-  const watch = (label, child, primary = false) => {
+  const watch = (label, child, { primary = false, transient = false } = {}) => {
     children.add(child);
     child.once("error", (error) => {
       if (!stopping) process.stderr.write(`[glass-dev] ${label} failed: ${error.message}\n`);
@@ -231,6 +236,10 @@ async function main() {
     child.once("exit", (code, signal) => {
       children.delete(child);
       if (stopping) return;
+      if (transient && code === 0 && signal === null) {
+        process.stdout.write(`[glass-dev] ${label} launched.\n`);
+        return;
+      }
       if (!primary || code !== 0 || signal !== null) {
         process.stderr.write(
           `[glass-dev] ${label} stopped unexpectedly${signal ? ` (${signal})` : ` (exit ${String(code)})`}.\n`,
@@ -276,16 +285,35 @@ async function main() {
     }
 
     if (surface === "mobile" || surface === "mobile-ios") {
-      const task = surface === "mobile-ios" ? "start:ios" : "start:metro";
-      const mobile = spawn("vp", ["run", "--filter", "@glass/mobile", task], {
-        env: { ...process.env, EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin },
-      });
-      watch(surface, mobile, true);
-      process.stdout.write(`[glass-dev] Ready: ${surface} + ${config.cloudOrigin}\n`);
+      const metroPort = await findAvailablePort(parseMetroPort(process.env.GLASS_DEV_METRO_PORT));
+      const metro = spawn(
+        "vp",
+        ["run", "--filter", "@glass/mobile", "start:metro", "--port", String(metroPort)],
+        {
+          env: { ...process.env, EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin },
+        },
+      );
+      watch("Metro", metro, { primary: true });
+      await waitForHttp(`http://127.0.0.1:${metroPort}/status`);
+
+      if (surface === "mobile-ios") {
+        const ios = spawn(
+          "vp",
+          ["run", "--filter", "@glass/mobile", "start:ios", "--port", String(metroPort)],
+          {
+            env: { ...process.env, EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin },
+          },
+        );
+        watch("iOS app", ios, { transient: true });
+      }
+
+      process.stdout.write(
+        `[glass-dev] Ready: ${surface} + Metro ${metroPort} + ${config.cloudOrigin}\n`,
+      );
       return;
     }
 
-    const port = await findAvailableWebPort(parseWebPort(process.env.GLASS_DEV_WEB_PORT));
+    const port = await findAvailablePort(parseWebPort(process.env.GLASS_DEV_WEB_PORT));
     const webOrigin = `http://127.0.0.1:${port}`;
     const web = spawn("vp", ["run", "--filter", "@glass/web", "start:vite"], {
       env: webEnvironment(
@@ -294,7 +322,7 @@ async function main() {
         surface === "web" && process.env.GLASS_DEV_OPEN_BROWSER !== "0",
       ),
     });
-    watch("web renderer", web, surface === "web");
+    watch("web renderer", web, { primary: surface === "web" });
     await waitForHttp(webOrigin);
 
     if (surface === "desktop") {
@@ -305,7 +333,7 @@ async function main() {
           GLASS_WEB_DEV_SERVER_URL: webOrigin,
         },
       });
-      watch("desktop", desktop, true);
+      watch("desktop", desktop, { primary: true });
     }
 
     process.stdout.write(
