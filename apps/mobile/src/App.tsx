@@ -1,12 +1,11 @@
-import { KeyboardProvider } from "react-native-keyboard-controller";
-
 import { RootNavigator } from "./navigation/RootNavigator.tsx";
+import { KeyboardContextProvider } from "./providers/KeyboardContextProvider.tsx";
 import { ProductCloudProvider } from "./product-cloud/ProductCloudProvider.tsx";
 
 export const App = () => (
-  <KeyboardProvider>
+  <KeyboardContextProvider>
     <ProductCloudProvider>
       <RootNavigator />
     </ProductCloudProvider>
-  </KeyboardProvider>
+  </KeyboardContextProvider>
 );
