@@ -1,0 +1,476 @@
+import type { ArtifactId, ProjectId, ThreadId } from "@glass/contracts/ids";
+import { decodeId } from "@glass/contracts/ids";
+import type { NoteArtifact } from "@glass/contracts/product";
+import type { ProductSnapshot } from "@glass/contracts/sync";
+import { Link, Outlet, useLocation, useNavigate, useParams } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
+
+import { AuthenticationScreen } from "../AuthenticationScreen.tsx";
+import { EnvironmentPanel } from "./EnvironmentPanel.tsx";
+import { OrganizationDirectory } from "./OrganizationDirectory.tsx";
+import { useProductCloud } from "./ProductCloudProvider.tsx";
+import { resolveWebProductDestination } from "./routing.ts";
+
+const NoteEditor = lazy(() =>
+  import("./NoteEditor.tsx").then((module) => ({ default: module.NoteEditor })),
+);
+
+const summaryLabel = (count: number, noun: string): string =>
+  `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+const SnapshotSummary = ({
+  onCreateNote,
+  onCreateProject,
+  snapshot,
+}: Readonly<{
+  onCreateNote: (projectId: ProjectId, name: string) => Promise<void>;
+  onCreateProject: (name: string, description: string | null) => Promise<void>;
+  snapshot: ProductSnapshot;
+}>) => {
+  const [noteName, setNoteName] = useState("");
+  const [noteProjectId, setNoteProjectId] = useState<ProjectId | "">(
+    snapshot.projects[0]?.id ?? "",
+  );
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
+
+  const submitNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = noteName.trim();
+    if (noteProjectId === "" || name.length === 0) {
+      setCreateError("Choose a project and enter a note name.");
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await onCreateNote(noteProjectId, name);
+      setNoteName("");
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Glass Cloud could not create the note.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const submitProject = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = projectName.trim();
+    if (name.length === 0) {
+      setCreateError("Enter a project name.");
+      return;
+    }
+    setCreatingProject(true);
+    setCreateError(null);
+    try {
+      await onCreateProject(name, projectDescription.trim() || null);
+      setProjectName("");
+      setProjectDescription("");
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Glass Cloud could not create the project.",
+      );
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
+  return (
+    <section className="product-summary" aria-label="Cloud product snapshot">
+      <header>
+        <div>
+          <p className="section-label">Organization</p>
+          <h2>{snapshot.organization.name}</h2>
+        </div>
+      </header>
+
+      <div className="entity-columns">
+        <section>
+          <h3>Projects</h3>
+          <form className="note-create-form" onSubmit={(event) => void submitProject(event)}>
+            <input
+              aria-label="Project name"
+              disabled={creatingProject}
+              maxLength={240}
+              onChange={(event) => setProjectName(event.target.value)}
+              placeholder="New project name"
+              value={projectName}
+            />
+            <input
+              aria-label="Project description"
+              disabled={creatingProject}
+              maxLength={4000}
+              onChange={(event) => setProjectDescription(event.target.value)}
+              placeholder="Description (optional)"
+              value={projectDescription}
+            />
+            <button disabled={creatingProject} type="submit">
+              {creatingProject ? "Creating…" : "Create project"}
+            </button>
+          </form>
+          {snapshot.projects.length === 0 ? <p className="empty-copy">No projects yet.</p> : null}
+          {snapshot.projects.map((project) => (
+            <Link
+              className="entity-card note-card"
+              key={project.id}
+              params={{ projectId: project.id }}
+              to="/workspace/projects/$projectId"
+            >
+              <strong>{project.name}</strong>
+              <span>{project.description ?? "No description"}</span>
+            </Link>
+          ))}
+        </section>
+        <section>
+          <h3>Threads</h3>
+          {snapshot.threads.length === 0 ? <p className="empty-copy">No threads yet.</p> : null}
+          {snapshot.threads.map((thread) => (
+            <Link
+              className="entity-card note-card"
+              key={thread.id}
+              params={{ threadId: thread.id }}
+              to="/workspace/threads/$threadId"
+            >
+              <strong>{thread.title ?? "Untitled thread"}</strong>
+              <span>
+                {summaryLabel(
+                  snapshot.messages.filter((message) => message.threadId === thread.id).length,
+                  "message",
+                )}
+              </span>
+            </Link>
+          ))}
+        </section>
+        <section>
+          <h3>Artifacts</h3>
+          {snapshot.artifacts.every((artifact) => artifact.kind !== "agent-output") ? (
+            <p className="empty-copy">No artifacts yet.</p>
+          ) : null}
+          {snapshot.artifacts
+            .filter((artifact) => artifact.kind === "agent-output")
+            .map((artifact) => (
+              <Link
+                className="entity-card note-card"
+                key={artifact.id}
+                params={{ artifactId: artifact.id }}
+                to="/workspace/artifacts/$artifactId"
+              >
+                <strong>{artifact.name}</strong>
+                <span>{artifact.kind}</span>
+              </Link>
+            ))}
+        </section>
+        <section>
+          <h3>Notes</h3>
+          <form className="note-create-form" onSubmit={(event) => void submitNote(event)}>
+            <select
+              aria-label="Note project"
+              disabled={creating || snapshot.projects.length === 0}
+              onChange={(event) => setNoteProjectId(event.target.value as ProjectId)}
+              value={noteProjectId}
+            >
+              {snapshot.projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="Note name"
+              disabled={creating || snapshot.projects.length === 0}
+              maxLength={240}
+              onChange={(event) => setNoteName(event.target.value)}
+              placeholder="New note name"
+              value={noteName}
+            />
+            <button disabled={creating || snapshot.projects.length === 0} type="submit">
+              {creating ? "Creating…" : "Create note"}
+            </button>
+            {createError === null ? null : <p className="field-error">{createError}</p>}
+          </form>
+          {snapshot.artifacts.every((artifact) => artifact.kind !== "note") ? (
+            <p className="empty-copy">No notes yet.</p>
+          ) : null}
+          {snapshot.artifacts
+            .filter((artifact) => artifact.kind === "note")
+            .map((note) => (
+              <Link
+                className="entity-card note-card"
+                key={note.id}
+                params={{ noteId: note.id }}
+                to="/workspace/notes/$noteId"
+              >
+                <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
+                <span>Open note</span>
+              </Link>
+            ))}
+        </section>
+      </div>
+    </section>
+  );
+};
+
+const ErrorState = () => {
+  const { refresh, snapshot, view } = useProductCloud();
+  if (!("error" in view) || view.error === null) return null;
+  return (
+    <section className="offline-banner" role="status">
+      <p>{view.error}</p>
+      {snapshot === null ? null : <p>Showing the last validated device cache.</p>}
+      {view.status === "offline" ? (
+        <button className="retry-button" onClick={refresh} type="button">
+          Reconnect
+        </button>
+      ) : null}
+    </section>
+  );
+};
+
+const OutboxAttention = () => {
+  const { discardOutboxItem, outbox, retryOutboxItem } = useProductCloud();
+  const [error, setError] = useState<string | null>(null);
+  const needsAttention = outbox.filter((item) => item.status === "needs-attention");
+  if (needsAttention.length === 0) return null;
+  const run = (action: Promise<void>) => {
+    setError(null);
+    void action.catch((cause: unknown) =>
+      setError(cause instanceof Error ? cause.message : "The outbox action failed."),
+    );
+  };
+  return (
+    <section className="attention-panel" aria-label="Outbox items needing attention">
+      <h2>Outbox needs attention</h2>
+      {needsAttention.map((item) => (
+        <article className="attention-item" key={item.mutation.commandId}>
+          <p>
+            {item.mutation.operation.kind}: {item.attention?.message}
+          </p>
+          <div>
+            {item.attention?.code === "forbidden" || item.attention?.code === "not-found" ? (
+              <button
+                className="retry-button"
+                onClick={() => run(retryOutboxItem(item.mutation.commandId))}
+                type="button"
+              >
+                Retry after access changes
+              </button>
+            ) : null}
+            <button
+              className="retry-button"
+              onClick={() => run(discardOutboxItem(item.mutation.commandId))}
+              type="button"
+            >
+              Discard command
+            </button>
+          </div>
+        </article>
+      ))}
+      {error === null ? null : (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+};
+
+export const ProductRouteCoordinator = () => {
+  const { organizationId, view } = useProductCloud();
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const navigate = useNavigate();
+  const destination = resolveWebProductDestination({
+    authenticated: "userId" in view,
+    organizationSelected: organizationId !== null,
+    pathname,
+    status: view.status,
+  });
+
+  useEffect(() => {
+    if (destination !== null) void navigate({ replace: true, to: destination });
+  }, [destination, navigate]);
+
+  return null;
+};
+
+export const AuthProductScreen = () => {
+  const { refresh, view } = useProductCloud();
+  if (view.status === "checking-session") {
+    return <p className="state-panel">Checking the Glass Cloud session…</p>;
+  }
+  if (view.status === "signed-out") return <AuthenticationScreen onSignedIn={refresh} />;
+  return <ErrorState />;
+};
+
+export const OrganizationsProductScreen = () => {
+  const { bootstrapOrganization, organizationId, selectOrganization, view } = useProductCloud();
+  if (!("userId" in view)) return <ErrorState />;
+  return (
+    <>
+      <OrganizationDirectory
+        activeOrganizationId={organizationId}
+        onBootstrap={bootstrapOrganization}
+        onSelect={selectOrganization}
+        userId={view.userId}
+      />
+      <ErrorState />
+      <OutboxAttention />
+    </>
+  );
+};
+
+export const WorkspaceProductLayout = () => {
+  const { organizationId, signOut, view } = useProductCloud();
+  const [error, setError] = useState<string | null>(null);
+  if (view.status === "checking-session") {
+    return <p className="state-panel">Opening your workspace…</p>;
+  }
+  if (!("userId" in view) || organizationId === null) return null;
+  return (
+    <>
+      <div className="session-actions">
+        <Link to="/organizations">Organizations</Link>
+        <button
+          onClick={() => {
+            setError(null);
+            void signOut().catch((cause: unknown) =>
+              setError(cause instanceof Error ? cause.message : "Glass Cloud sign-out failed."),
+            );
+          }}
+          type="button"
+        >
+          Sign out
+        </button>
+      </div>
+      {error === null ? null : (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
+      <ErrorState />
+      <OutboxAttention />
+      <Outlet />
+    </>
+  );
+};
+
+export const WorkspaceProductScreen = () => {
+  const { createNote, createProject, organizationId, snapshot, view } = useProductCloud();
+  const [executionStatus, setExecutionStatus] = useState<
+    "connecting" | "not-configured" | "online"
+  >("not-configured");
+  const navigate = useNavigate();
+  return (
+    <>
+      <section className="connection-card" aria-label="Connection boundaries">
+        <div>
+          <span>Product connection</span>
+          <strong>{view.status}</strong>
+        </div>
+        <div>
+          <span>Execution connection</span>
+          <strong>{executionStatus}</strong>
+        </div>
+      </section>
+      {organizationId === null ? null : (
+        <EnvironmentPanel
+          organizationId={organizationId}
+          onConnectionStatus={setExecutionStatus}
+          projects={snapshot?.projects ?? []}
+        />
+      )}
+      {snapshot === null ? null : (
+        <SnapshotSummary
+          onCreateNote={async (projectId, name) => {
+            const note = await createNote(projectId, name);
+            await navigate({ params: { noteId: note.id }, to: "/workspace/notes/$noteId" });
+          }}
+          onCreateProject={createProject}
+          snapshot={snapshot}
+        />
+      )}
+    </>
+  );
+};
+
+const decodeRouteId = <Id extends string>(value: string, path: string): Id | null => {
+  const decoded = decodeId<Id>(value, path);
+  return decoded.ok ? decoded.value : null;
+};
+
+const MissingEntity = ({ label }: Readonly<{ label: string }>) => (
+  <section className="state-panel">
+    <h2>{label} unavailable</h2>
+    <p>The requested item is not in the current organization.</p>
+    <Link to="/workspace">Back to workspace</Link>
+  </section>
+);
+
+export const NoteProductScreen = () => {
+  const { snapshot } = useProductCloud();
+  const navigate = useNavigate();
+  const { noteId: rawNoteId } = useParams({ from: "/workspace/notes/$noteId" });
+  const noteId = decodeRouteId<ArtifactId>(rawNoteId, "$noteId");
+  const note = snapshot?.artifacts.find(
+    (artifact): artifact is NoteArtifact => artifact.kind === "note" && artifact.id === noteId,
+  );
+  if (note === undefined) return <MissingEntity label="Note" />;
+  return (
+    <Suspense fallback={<p className="state-panel">Opening editor…</p>}>
+      <NoteEditor note={note} onClose={() => void navigate({ to: "/workspace" })} />
+    </Suspense>
+  );
+};
+
+export const ProjectProductScreen = () => {
+  const { snapshot } = useProductCloud();
+  const { projectId: rawProjectId } = useParams({ from: "/workspace/projects/$projectId" });
+  const projectId = decodeRouteId<ProjectId>(rawProjectId, "$projectId");
+  const project = snapshot?.projects.find((candidate) => candidate.id === projectId);
+  if (project === undefined) return <MissingEntity label="Project" />;
+  return (
+    <section className="state-panel">
+      <h2>{project.name}</h2>
+      <p>{project.description ?? "No description"}</p>
+    </section>
+  );
+};
+
+export const ThreadProductScreen = () => {
+  const { snapshot } = useProductCloud();
+  const { threadId: rawThreadId } = useParams({ from: "/workspace/threads/$threadId" });
+  const threadId = decodeRouteId<ThreadId>(rawThreadId, "$threadId");
+  const thread = snapshot?.threads.find((candidate) => candidate.id === threadId);
+  if (thread === undefined) return <MissingEntity label="Thread" />;
+  return (
+    <section className="state-panel">
+      <h2>{thread.title ?? "Untitled thread"}</h2>
+      <p>
+        {summaryLabel(
+          snapshot?.messages.filter((message) => message.threadId === thread.id).length ?? 0,
+          "message",
+        )}
+      </p>
+    </section>
+  );
+};
+
+export const ArtifactProductScreen = () => {
+  const { snapshot } = useProductCloud();
+  const { artifactId: rawArtifactId } = useParams({ from: "/workspace/artifacts/$artifactId" });
+  const artifactId = decodeRouteId<ArtifactId>(rawArtifactId, "$artifactId");
+  const artifact = snapshot?.artifacts.find(
+    (candidate) => candidate.kind === "agent-output" && candidate.id === artifactId,
+  );
+  if (artifact === undefined) return <MissingEntity label="Artifact" />;
+  return (
+    <section className="state-panel">
+      <h2>{artifact.name}</h2>
+      <p>{artifact.kind}</p>
+    </section>
+  );
+};

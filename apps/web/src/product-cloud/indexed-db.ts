@@ -9,7 +9,7 @@ import {
   type SyncCommit,
   type SyncStorage,
 } from "@glass/client-runtime/sync";
-import type { CommandId, OrganizationId, UserId } from "@glass/contracts/ids";
+import { decodeId, type CommandId, type OrganizationId, type UserId } from "@glass/contracts/ids";
 import type { ProductEvent } from "@glass/contracts/events";
 import type { Organization, ProductEntity } from "@glass/contracts/product";
 import type { ProductSnapshot } from "@glass/contracts/sync";
@@ -35,6 +35,41 @@ export const outboxStorageKey = (
 
 export const organizationBootstrapKey = (userId: UserId): string =>
   `user:${userId}:organization-bootstrap`;
+
+const activeOrganizationStorageKey = (userId: UserId): string =>
+  `glass:active-organization:${userId}`;
+
+export const decodeActiveOrganizationPreference = (input: unknown): OrganizationId | null => {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const record = input as Record<string, unknown>;
+  if (record.schemaVersion !== 1) return null;
+  const decoded = decodeId<OrganizationId>(record.organizationId, "$activeOrganizationId");
+  return decoded.ok ? decoded.value : null;
+};
+
+export const loadActiveOrganization = (userId: UserId): OrganizationId | null => {
+  const raw = window.localStorage.getItem(activeOrganizationStorageKey(userId));
+  if (raw === null) return null;
+  try {
+    const organizationId = decodeActiveOrganizationPreference(JSON.parse(raw) as unknown);
+    if (organizationId !== null) return organizationId;
+  } catch {
+    // Invalid device preferences are discarded below.
+  }
+  window.localStorage.removeItem(activeOrganizationStorageKey(userId));
+  return null;
+};
+
+export const saveActiveOrganization = (userId: UserId, organizationId: OrganizationId): void => {
+  window.localStorage.setItem(
+    activeOrganizationStorageKey(userId),
+    JSON.stringify({ organizationId, schemaVersion: 1 }),
+  );
+};
+
+export const clearActiveOrganization = (userId: UserId): void => {
+  window.localStorage.removeItem(activeOrganizationStorageKey(userId));
+};
 
 const decodeOrganizationBootstrap = (input: unknown): OutboxEnvelope => {
   const envelope = decodeOutboxEnvelope(input);

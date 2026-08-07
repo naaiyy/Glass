@@ -22,6 +22,8 @@ catalog:
   "@openeditor/native": 0.0.34
   "@openeditor/react": 0.0.34
   "@openeditor/ui": 0.0.34
+  "@tanstack/react-router": 1.170.21
+  "@tanstack/router-plugin": 1.168.26
   "@types/node": 24.12.4
   "@typescript/native-preview": 7.0.0-dev.20260604.1
   better-auth: 1.6.25
@@ -40,6 +42,11 @@ minimumReleaseAgeExclude:
   - wrangler@4.118.0
   - "@types/pg@8.20.3"
   - "@openeditor/*"
+  - "@tanstack/history@1.162.1"
+  - "@tanstack/react-router@1.170.21"
+  - "@tanstack/router-core@1.171.18"
+  - "@tanstack/router-generator@1.167.24"
+  - "@tanstack/router-plugin@1.168.26"
 
 overrides:
   "@effect/platform-node": "catalog:"

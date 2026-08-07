@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite-plus";
 
 const cloudOrigin = process.env.GLASS_CLOUD_ORIGIN?.trim();
@@ -24,7 +25,7 @@ const proxy =
 
 export default defineConfig({
   base: "./",
-  plugins: [react()],
+  plugins: [tanstackRouter({ quoteStyle: "double", semicolons: true }), react()],
   resolve: {
     dedupe: ["react", "react-dom"],
   },

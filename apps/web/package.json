@@ -19,11 +19,13 @@
     "@openeditor/core": "catalog:",
     "@openeditor/react": "catalog:",
     "@openeditor/ui": "catalog:",
+    "@tanstack/react-router": "catalog:",
     "better-auth": "catalog:",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@tanstack/router-plugin": "catalog:",
     "@types/react": "~19.2.14",
     "@types/react-dom": "~19.2.3",
     "@vitejs/plugin-react": "6.0.5",

@@ -355,7 +355,7 @@ export const EnvironmentPanel = ({
       </p>
       <form onSubmit={(event) => void approve(event)}>
         <label htmlFor="pairing-code">Pairing code</label>
-        <div className="organization-picker">
+        <div className="connection-code-fields">
           <input
             id="pairing-code"
             autoCapitalize="characters"
@@ -371,7 +371,7 @@ export const EnvironmentPanel = ({
       </form>
       <form onSubmit={(event) => void approveRotation(event)}>
         <label htmlFor="rotation-code">Environment key-rotation code</label>
-        <div className="organization-picker">
+        <div className="connection-code-fields">
           <input
             id="rotation-code"
             autoCapitalize="characters"

@@ -19,6 +19,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { SyncCheckpoint } from "@glass/client-runtime/sync";
 import {
   applyProductEvents,
+  decodeActiveOrganizationPreference,
   mergeOrganizationBootstrap,
   productStorageKey,
   shouldPersistCursor,
@@ -51,6 +52,19 @@ const artifactId = "00000000-0000-4000-8000-000000000009" as ArtifactId;
 const commandId = "00000000-0000-4000-8000-000000000010" as CommandId;
 const eventId = "00000000-0000-4000-8000-000000000011" as EventId;
 const timestamp = "2026-08-02T10:00:00.000Z" as IsoDateTime;
+
+describe("active organization preference", () => {
+  it("accepts only the current versioned device preference", () => {
+    expect(decodeActiveOrganizationPreference({ organizationId, schemaVersion: 1 })).toBe(
+      organizationId,
+    );
+    expect(decodeActiveOrganizationPreference(organizationId)).toBeNull();
+    expect(decodeActiveOrganizationPreference({ organizationId, schemaVersion: 2 })).toBeNull();
+    expect(
+      decodeActiveOrganizationPreference({ organizationId: "not-an-id", schemaVersion: 1 }),
+    ).toBeNull();
+  });
+});
 
 const snapshot = (): ProductSnapshot => ({
   artifacts: [
