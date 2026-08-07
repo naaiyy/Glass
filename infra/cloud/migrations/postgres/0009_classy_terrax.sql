@@ -1,0 +1,12 @@
+ALTER TABLE "environment_identity_challenges" DROP CONSTRAINT "environment_identity_challenges_shape_check";--> statement-breakpoint
+DELETE FROM "environment_identity_challenges" WHERE "purpose" = 'rotate';--> statement-breakpoint
+DELETE FROM "environment_security_events" WHERE "type" IN ('key-rotation-requested', 'key-rotation-approved', 'key-rotated');--> statement-breakpoint
+ALTER TABLE "environment_identity_challenges" ALTER COLUMN "purpose" SET DATA TYPE text;--> statement-breakpoint
+DROP TYPE "public"."environment_challenge_purpose";--> statement-breakpoint
+CREATE TYPE "public"."environment_challenge_purpose" AS ENUM('pair', 'credential');--> statement-breakpoint
+ALTER TABLE "environment_identity_challenges" ALTER COLUMN "purpose" SET DATA TYPE "public"."environment_challenge_purpose" USING "purpose"::"public"."environment_challenge_purpose";--> statement-breakpoint
+ALTER TABLE "environment_security_events" ALTER COLUMN "type" SET DATA TYPE text;--> statement-breakpoint
+DROP TYPE "public"."environment_security_event_type";--> statement-breakpoint
+CREATE TYPE "public"."environment_security_event_type" AS ENUM('pairing-requested', 'pairing-approved', 'pairing-completed', 'credential-issued', 'environment-revoked');--> statement-breakpoint
+ALTER TABLE "environment_security_events" ALTER COLUMN "type" SET DATA TYPE "public"."environment_security_event_type" USING "type"::"public"."environment_security_event_type";--> statement-breakpoint
+ALTER TABLE "environment_identity_challenges" ADD CONSTRAINT "environment_identity_challenges_shape_check" CHECK (("environment_identity_challenges"."purpose" = 'pair' and "environment_identity_challenges"."environment_id" is null and "environment_identity_challenges"."requested_public_key" is not null and "environment_identity_challenges"."display_name" is not null and "environment_identity_challenges"."platform" is not null and "environment_identity_challenges"."pairing_code_hash" is not null and "environment_identity_challenges"."polling_token_hash" is not null) or ("environment_identity_challenges"."purpose" = 'credential' and "environment_identity_challenges"."organization_id" is not null and "environment_identity_challenges"."environment_id" is not null and "environment_identity_challenges"."challenge" is not null and "environment_identity_challenges"."requested_by_user_id" is null and "environment_identity_challenges"."requested_public_key" is null and "environment_identity_challenges"."display_name" is null and "environment_identity_challenges"."platform" is null));

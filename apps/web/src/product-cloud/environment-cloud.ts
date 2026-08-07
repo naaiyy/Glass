@@ -73,11 +73,6 @@ const decoded = async <Value>(
 export const environmentCloud = {
   approve: (organizationId: OrganizationId, pairingCode: string) =>
     request("/v1/environment-pairings/approve", "POST", { organizationId, pairingCode }),
-  approveRotation: (organizationId: OrganizationId, rotationCode: string) =>
-    request("/v1/environment-rotations/approve", "POST", {
-      organizationId,
-      rotationCode,
-    }),
   list: (organizationId: OrganizationId) =>
     decoded(
       request(`/v1/environments?organizationId=${encodeURIComponent(organizationId)}`, "GET"),

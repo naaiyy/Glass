@@ -23,16 +23,12 @@ export const organizationRole = pgEnum("organization_role", ["owner", "admin", "
 export const environmentChallengePurpose = pgEnum("environment_challenge_purpose", [
   "pair",
   "credential",
-  "rotate",
 ]);
 export const environmentSecurityEventType = pgEnum("environment_security_event_type", [
   "pairing-requested",
   "pairing-approved",
   "pairing-completed",
   "credential-issued",
-  "key-rotation-requested",
-  "key-rotation-approved",
-  "key-rotated",
   "environment-revoked",
 ]);
 
@@ -250,7 +246,7 @@ export const environmentIdentityChallenges = pgTable(
     index("environment_identity_challenges_expiry_idx").on(table.expiresAt),
     check(
       "environment_identity_challenges_shape_check",
-      sql`(${table.purpose} = 'pair' and ${table.environmentId} is null and ${table.requestedPublicKey} is not null and ${table.displayName} is not null and ${table.platform} is not null and ${table.pairingCodeHash} is not null and ${table.pollingTokenHash} is not null) or (${table.purpose} = 'credential' and ${table.organizationId} is not null and ${table.environmentId} is not null and ${table.challenge} is not null and ${table.requestedByUserId} is null and ${table.requestedPublicKey} is null and ${table.displayName} is null and ${table.platform} is null) or (${table.purpose} = 'rotate' and ${table.organizationId} is not null and ${table.environmentId} is not null and ${table.requestedPublicKey} is not null and ${table.displayName} is null and ${table.platform} is null and ((${table.pairingCodeHash} is not null and ${table.pollingTokenHash} is not null) or (${table.challenge} is not null and ${table.requestedByUserId} is not null)))`,
+      sql`(${table.purpose} = 'pair' and ${table.environmentId} is null and ${table.requestedPublicKey} is not null and ${table.displayName} is not null and ${table.platform} is not null and ${table.pairingCodeHash} is not null and ${table.pollingTokenHash} is not null) or (${table.purpose} = 'credential' and ${table.organizationId} is not null and ${table.environmentId} is not null and ${table.challenge} is not null and ${table.requestedByUserId} is null and ${table.requestedPublicKey} is null and ${table.displayName} is null and ${table.platform} is null)`,
     ),
     uniqueIndex("environment_identity_challenges_pairing_code_unique").on(table.pairingCodeHash),
   ],

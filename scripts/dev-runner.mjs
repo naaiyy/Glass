@@ -7,28 +7,22 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 
+import { prepareLocalRuntime, resolveLocalRuntime } from "./local-runtime.mjs";
+
 const scriptDirectory = NodePath.dirname(NodeURL.fileURLToPath(import.meta.url));
 const repositoryRoot = NodePath.resolve(scriptDirectory, "..");
-const cloudConfig = JSON.parse(
-  NodeFS.readFileSync(NodePath.join(repositoryRoot, "config", "glass-cloud.json"), "utf8"),
-);
-const defaultIdentityPath = NodePath.join(
-  NodeOS.homedir(),
-  ".glass",
-  "development",
-  "execution-node.json",
-);
+const defaultIdentityRoot = NodePath.join(NodeOS.homedir(), ".glass", "local");
 const defaultWebPort = 5173;
 const defaultMetroPort = 8081;
 const maximumPort = 65_535;
 const portScanRange = 100;
-const surfaces = new Set(["web", "desktop", "mobile", "mobile-ios"]);
+const surfaces = new Set(["api", "web", "desktop", "mobile", "mobile-ios"]);
 
 export function parseDevelopmentSurface(input) {
   const surface = input?.trim() || "web";
   if (!surfaces.has(surface)) {
     throw new Error(
-      `Unknown Glass development surface "${surface}". Expected web, desktop, mobile, or mobile-ios.`,
+      `Unknown Glass development surface "${surface}". Expected api, web, desktop, mobile, or mobile-ios.`,
     );
   }
   return surface;
@@ -66,9 +60,11 @@ export function resolveCloudOrigin(input) {
 export function resolveLaunchConfiguration({
   environment,
   readFile = NodeFS.readFileSync,
-  fileExists = NodeFS.existsSync,
+  runtime = resolveLocalRuntime(environment),
 }) {
-  const identityPath = environment.GLASS_NODE_IDENTITY_PATH?.trim() || defaultIdentityPath;
+  const identityPath =
+    environment.GLASS_NODE_IDENTITY_PATH?.trim() ||
+    NodePath.join(defaultIdentityRoot, runtime.instance, "execution-node.json");
   const workspaceConfigPath =
     environment.GLASS_EXECUTION_WORKSPACES_PATH?.trim() ||
     NodePath.join(NodePath.dirname(identityPath), "execution-workspaces.json");
@@ -79,27 +75,29 @@ export function resolveLaunchConfiguration({
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
   }
 
-  // Development never silently targets staging or production because an unrelated published
-  // identity happens to exist on the machine. An override is explicit; otherwise shared dev wins.
+  // Local development never silently targets a deployment because an unrelated published identity
+  // happens to exist on the machine. An override is explicit; otherwise the local API wins.
   const configuredOrigin = environment.GLASS_CLOUD_ORIGIN?.trim();
-  const cloudOrigin = resolveCloudOrigin(configuredOrigin || cloudConfig.origins.development);
+  const cloudOrigin = resolveCloudOrigin(configuredOrigin || runtime.apiOrigin);
   const identityOrigin =
     identity !== null && typeof identity.apiOrigin === "string"
       ? resolveCloudOrigin(identity.apiOrigin)
       : undefined;
-  const hasWorkspaceEnvironment = Boolean(environment.GLASS_EXECUTION_WORKSPACES?.trim());
-  const hasWorkspaceConfig = fileExists(workspaceConfigPath);
+  const hasPublishedIdentity =
+    identity !== null &&
+    typeof identity === "object" &&
+    typeof identity.environment === "object" &&
+    identity.environment !== null;
   const identityMatchesCloud = identityOrigin === cloudOrigin;
-  const executionConfigured =
-    identity !== null && identityMatchesCloud && (hasWorkspaceEnvironment || hasWorkspaceConfig);
+  const executionConfigured = hasPublishedIdentity && identityMatchesCloud;
 
   return {
     cloudOrigin,
     executionConfigured,
     hasIdentity: identity !== null,
+    hasPublishedIdentity,
     identityMatchesCloud,
     identityOrigin,
-    hasWorkspaceConfig: hasWorkspaceEnvironment || hasWorkspaceConfig,
     identityPath,
     workspaceConfigPath,
   };
@@ -203,19 +201,10 @@ const webEnvironment = (cloudOrigin, port, openBrowser) => ({
 
 async function main() {
   const surface = parseDevelopmentSurface(process.argv[2]);
-  const config = resolveLaunchConfiguration({ environment: process.env });
+  const runtime = resolveLocalRuntime(process.env);
+  const config = resolveLaunchConfiguration({ environment: process.env, runtime });
   process.stdout.write(`[glass-dev] Surface: ${surface}\n`);
-  process.stdout.write(`[glass-dev] Glass Cloud: ${config.cloudOrigin}\n`);
-  await verifyGlassCloud(config.cloudOrigin);
-
-  const builds = [];
-  if (surface === "desktop") {
-    builds.push(runChecked("vp", ["run", "--filter", "@glass/desktop", "build"]));
-  }
-  if (config.executionConfigured) {
-    builds.push(runChecked("vp", ["run", "--filter", "@glass/execution-node", "build"]));
-  }
-  await Promise.all(builds);
+  process.stdout.write(`[glass-dev] Local Glass Cloud: ${config.cloudOrigin}\n`);
 
   const children = new Set();
   let stopping = false;
@@ -226,16 +215,21 @@ async function main() {
       if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
     }
   };
-  const watch = (label, child, { primary = false, transient = false } = {}) => {
+  const watch = (label, child, { isolated = false, primary = false, transient = false } = {}) => {
     children.add(child);
     child.once("error", (error) => {
       if (!stopping) process.stderr.write(`[glass-dev] ${label} failed: ${error.message}\n`);
+      if (isolated) return;
       process.exitCode = 1;
       stop();
     });
     child.once("exit", (code, signal) => {
       children.delete(child);
       if (stopping) return;
+      if (isolated) {
+        process.stdout.write(`[glass-dev] ${label} unavailable; product development continues.\n`);
+        return;
+      }
       if (transient && code === 0 && signal === null) {
         process.stdout.write(`[glass-dev] ${label} launched.\n`);
         return;
@@ -260,37 +254,71 @@ async function main() {
   }
 
   try {
+    const prepared = await prepareLocalRuntime(runtime);
+    const api = spawn(
+      "apps/api/node_modules/.bin/wrangler",
+      [
+        "dev",
+        "--config",
+        prepared.wranglerConfigPath,
+        "--env-file",
+        prepared.devVarsPath,
+        "--ip",
+        "127.0.0.1",
+        "--port",
+        String(runtime.ports.api),
+        "--persist-to",
+        NodePath.join(runtime.stateRoot, "wrangler"),
+        "--show-interactive-dev-session=false",
+      ],
+      { env: { ...process.env, NO_COLOR: "1" } },
+    );
+    watch("local Glass Cloud", api, { primary: surface === "api" });
+    await waitForHttp(`${config.cloudOrigin}/health`);
+    await verifyGlassCloud(config.cloudOrigin);
+    process.stdout.write(`[glass-dev] Local database: ${runtime.databaseName}\n`);
+
+    if (surface === "api") {
+      process.stdout.write(`[glass-dev] Ready: ${config.cloudOrigin}\n`);
+      return;
+    }
+
+    const builds = [];
+    if (surface === "desktop") {
+      builds.push(runChecked("vp", ["run", "--filter", "@glass/desktop", "build"]));
+    }
     if (config.executionConfigured) {
-      const execution = spawn(
-        process.execPath,
-        [
-          "apps/execution-node/dist/main.js",
-          "connect",
-          "--identity",
-          config.identityPath,
-          "--workspaces",
-          config.workspaceConfigPath,
-        ],
-        { env: { ...process.env, GLASS_NODE_IDENTITY_PATH: config.identityPath } },
-      );
-      watch("execution node", execution);
+      builds.push(runChecked("vp", ["run", "--filter", "@glass/execution-node", "build"]));
+    }
+    await Promise.all(builds);
+
+    if (config.executionConfigured) {
+      const execution = spawn(process.execPath, ["apps/execution-node/dist/main.js", "connect"], {
+        env: {
+          ...process.env,
+          GLASS_NODE_IDENTITY_PATH: config.identityPath,
+          GLASS_EXECUTION_WORKSPACES_PATH: config.workspaceConfigPath,
+        },
+      });
+      watch("execution node", execution, { isolated: true });
       process.stdout.write(`[glass-dev] Glass Connect: ${config.workspaceConfigPath}\n`);
     } else {
-      const reason = !config.hasIdentity
-        ? "publish this machine to enable execution"
-        : !config.identityMatchesCloud
-          ? `the configured identity belongs to ${config.identityOrigin}; publish one for ${config.cloudOrigin}`
-          : `register a workspace at ${config.workspaceConfigPath}`;
+      const reason = !config.hasPublishedIdentity
+        ? "run `vp run glass-connect` to publish this computer"
+        : `the configured identity belongs to ${config.identityOrigin}; use another identity path or publish for ${config.cloudOrigin}`;
       process.stdout.write(`[glass-dev] Glass Connect unavailable: ${reason}.\n`);
     }
 
     if (surface === "mobile" || surface === "mobile-ios") {
-      const metroPort = await findAvailablePort(parseMetroPort(process.env.GLASS_DEV_METRO_PORT));
+      const metroPort = await findAvailablePort(runtime.ports.metro);
       const metro = spawn(
         "vp",
         ["run", "--filter", "@glass/mobile", "start:metro", "--port", String(metroPort)],
         {
-          env: { ...process.env, EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin },
+          env: {
+            ...process.env,
+            EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin,
+          },
         },
       );
       watch("Metro", metro, { primary: true });
@@ -301,7 +329,10 @@ async function main() {
           "vp",
           ["run", "--filter", "@glass/mobile", "start:ios", "--port", String(metroPort)],
           {
-            env: { ...process.env, EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin },
+            env: {
+              ...process.env,
+              EXPO_PUBLIC_GLASS_API_URL: config.cloudOrigin,
+            },
           },
         );
         watch("iOS app", ios, { transient: true });
@@ -313,7 +344,7 @@ async function main() {
       return;
     }
 
-    const port = await findAvailablePort(parseWebPort(process.env.GLASS_DEV_WEB_PORT));
+    const port = await findAvailablePort(runtime.ports.web);
     const webOrigin = `http://127.0.0.1:${port}`;
     const web = spawn("vp", ["run", "--filter", "@glass/web", "start:vite"], {
       env: webEnvironment(

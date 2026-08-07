@@ -1,16 +1,12 @@
 import {
   decodeBeginEnvironmentPairingResponse,
-  decodeBeginEnvironmentRotationResponse,
   decodeEnvironmentCredential,
   decodeEnvironmentIdentityChallenge,
   decodeEnvironmentPairingStatus,
-  decodeEnvironmentRotationStatus,
   decodeExecutionEnvironment,
   type BeginEnvironmentPairingResponse,
-  type BeginEnvironmentRotationResponse,
   type EnvironmentCredential,
   type EnvironmentPairingStatus,
-  type EnvironmentRotationStatus,
   type ExecutionEnvironment,
 } from "@glass/contracts/environments";
 import type { DecodeResult } from "@glass/contracts/validation";
@@ -25,13 +21,18 @@ export type StoredNodeIdentity = Readonly<{
   environment: ExecutionEnvironment | null;
   privateKeyDer: string;
   publicKey: string;
-  pendingRotation?: Readonly<{
-    privateKeyDer: string;
-    publicKey: string;
-    rotation: BeginEnvironmentRotationResponse | null;
-  }>;
   version: 1;
 }>;
+
+export class EnvironmentRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "EnvironmentRequestError";
+    this.status = status;
+  }
+}
 
 export const defaultIdentityPath = (): string =>
   process.env.GLASS_NODE_IDENTITY_PATH?.trim() || join(homedir(), ".glass", "execution-node.json");
@@ -99,107 +100,6 @@ const signPrivateKey = (privateKeyDer: string, challenge: string): string => {
   return sign(null, Buffer.from(challenge, "utf8"), key).toString("base64url");
 };
 
-const replacementKey = () => {
-  const pair = generateKeyPairSync("ed25519");
-  const publicDer = pair.publicKey.export({ format: "der", type: "spki" });
-  const privateDer = pair.privateKey.export({ format: "der", type: "pkcs8" });
-  return {
-    publicKey: publicDer.subarray(-32).toString("base64url"),
-    privateKeyDer: privateDer.toString("base64url"),
-  };
-};
-
-export const stageKeyRotation = (identity: StoredNodeIdentity): StoredNodeIdentity =>
-  identity.pendingRotation === undefined
-    ? { ...identity, pendingRotation: { ...replacementKey(), rotation: null } }
-    : identity;
-
-export const beginKeyRotation = async (
-  identity: StoredNodeIdentity,
-): Promise<StoredNodeIdentity> => {
-  if (
-    identity.environment === null ||
-    identity.credential === null ||
-    identity.pendingRotation === undefined
-  )
-    throw new Error(
-      "A published environment, current credential, and staged replacement key are required.",
-    );
-  if (identity.pendingRotation.rotation !== null) return identity;
-  const proof = await request(
-    identity,
-    "/v1/connect/node-challenges",
-    {
-      environmentId: identity.environment.id,
-      organizationId: identity.environment.organizationId,
-    },
-    decodeEnvironmentIdentityChallenge,
-    identity.credential.token,
-  );
-  const rotation = await request(
-    identity,
-    "/v1/environment-rotations",
-    {
-      environmentId: identity.environment.id,
-      organizationId: identity.environment.organizationId,
-      publicKey: identity.pendingRotation.publicKey,
-      proofChallengeId: proof.challengeId,
-      signature: signChallenge(identity, proof.challenge),
-    },
-    decodeBeginEnvironmentRotationResponse,
-    identity.credential.token,
-  );
-  return { ...identity, pendingRotation: { ...identity.pendingRotation, rotation } };
-};
-
-export const finishKeyRotation = async (
-  identity: StoredNodeIdentity,
-): Promise<StoredNodeIdentity> => {
-  const pending = identity.pendingRotation;
-  if (identity.environment === null || pending?.rotation === null || pending === undefined)
-    throw new Error("No staged environment key rotation is ready.");
-  const rotation = pending.rotation;
-  const waitForApproval = async (): Promise<
-    Exclude<EnvironmentRotationStatus, { status: "pending" }>
-  > => {
-    const status = await request(
-      identity,
-      "/v1/environment-rotations/status",
-      {
-        rotationId: rotation.rotationId,
-        pollingToken: rotation.pollingToken,
-      },
-      decodeEnvironmentRotationStatus,
-    );
-    if (status.status !== "pending") return status;
-    await new Promise((resolve) => setTimeout(resolve, 2_000));
-    return waitForApproval();
-  };
-  const status = await waitForApproval();
-  const environment =
-    status.status === "completed"
-      ? status.environment
-      : await request(
-          identity,
-          "/v1/environment-rotations/complete",
-          {
-            rotationId: rotation.rotationId,
-            pollingToken: rotation.pollingToken,
-            currentKeySignature: signChallenge(identity, status.challenge),
-            replacementKeySignature: signPrivateKey(pending.privateKeyDer, status.challenge),
-          },
-          decodeExecutionEnvironment,
-        );
-  const { pendingRotation: _completedRotation, ...base } = identity;
-  return {
-    ...base,
-    publicKey: pending.publicKey,
-    privateKeyDer: pending.privateKeyDer,
-    environment,
-    credential: null,
-  };
-};
-
 const request = async <Value>(
   identity: StoredNodeIdentity,
   path: string,
@@ -222,7 +122,7 @@ const request = async <Value>(
       typeof value === "object" && value !== null && "message" in value
         ? String(value.message)
         : `Glass Cloud returned ${response.status}.`;
-    throw new Error(message);
+    throw new EnvironmentRequestError(response.status, message);
   }
   const decoded = decode(value);
   if (!decoded.ok) throw new Error("Glass Cloud returned a malformed environment response.");

@@ -2,7 +2,7 @@
   "name": "@glass/execution-node",
   "private": true,
   "bin": {
-    "glass-execution-node": "dist/main.js"
+    "glass-connect": "dist/main.js"
   },
   "type": "module",
   "exports": {
@@ -37,8 +37,9 @@
   },
   "scripts": {
     "build": "tsgo -p tsconfig.build.json",
-    "dev": "node --experimental-strip-types src/main.ts connect",
-    "start": "node dist/main.js connect",
+    "build:package": "node npm/build.mjs",
+    "dev": "node --experimental-strip-types src/main.ts",
+    "start": "node dist/main.js",
     "test": "vp test run --passWithNoTests",
     "typecheck": "tsgo --noEmit"
   },
@@ -53,6 +54,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "esbuild": "0.28.1",
     "vite-plus": "catalog:"
   }
 }

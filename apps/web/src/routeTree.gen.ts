@@ -16,6 +16,7 @@ import { Route as WorkspaceIndexRouteImport } from "./routes/workspace.index";
 import { Route as WorkspaceArtifactsArtifactIdRouteImport } from "./routes/workspace.artifacts.$artifactId";
 import { Route as WorkspaceNotesNoteIdRouteImport } from "./routes/workspace.notes.$noteId";
 import { Route as WorkspaceProjectsProjectIdRouteImport } from "./routes/workspace.projects.$projectId";
+import { Route as WorkspaceSettingsEnvironmentsRouteImport } from "./routes/workspace.settings.environments";
 import { Route as WorkspaceThreadsThreadIdRouteImport } from "./routes/workspace.threads.$threadId";
 
 const IndexRoute = IndexRouteImport.update({
@@ -55,6 +56,12 @@ const WorkspaceProjectsProjectIdRoute =
     path: "/projects/$projectId",
     getParentRoute: () => WorkspaceRoute,
   } as any);
+const WorkspaceSettingsEnvironmentsRoute =
+  WorkspaceSettingsEnvironmentsRouteImport.update({
+    id: "/settings/environments",
+    path: "/settings/environments",
+    getParentRoute: () => WorkspaceRoute,
+  } as any);
 const WorkspaceThreadsThreadIdRoute =
   WorkspaceThreadsThreadIdRouteImport.update({
     id: "/threads/$threadId",
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
   "/workspace/artifacts/$artifactId": typeof WorkspaceArtifactsArtifactIdRoute;
   "/workspace/notes/$noteId": typeof WorkspaceNotesNoteIdRoute;
   "/workspace/projects/$projectId": typeof WorkspaceProjectsProjectIdRoute;
+  "/workspace/settings/environments": typeof WorkspaceSettingsEnvironmentsRoute;
   "/workspace/threads/$threadId": typeof WorkspaceThreadsThreadIdRoute;
 }
 export interface FileRoutesByTo {
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
   "/workspace/artifacts/$artifactId": typeof WorkspaceArtifactsArtifactIdRoute;
   "/workspace/notes/$noteId": typeof WorkspaceNotesNoteIdRoute;
   "/workspace/projects/$projectId": typeof WorkspaceProjectsProjectIdRoute;
+  "/workspace/settings/environments": typeof WorkspaceSettingsEnvironmentsRoute;
   "/workspace/threads/$threadId": typeof WorkspaceThreadsThreadIdRoute;
 }
 export interface FileRoutesById {
@@ -90,6 +99,7 @@ export interface FileRoutesById {
   "/workspace/artifacts/$artifactId": typeof WorkspaceArtifactsArtifactIdRoute;
   "/workspace/notes/$noteId": typeof WorkspaceNotesNoteIdRoute;
   "/workspace/projects/$projectId": typeof WorkspaceProjectsProjectIdRoute;
+  "/workspace/settings/environments": typeof WorkspaceSettingsEnvironmentsRoute;
   "/workspace/threads/$threadId": typeof WorkspaceThreadsThreadIdRoute;
 }
 export interface FileRouteTypes {
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
     | "/workspace/artifacts/$artifactId"
     | "/workspace/notes/$noteId"
     | "/workspace/projects/$projectId"
+    | "/workspace/settings/environments"
     | "/workspace/threads/$threadId";
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
     | "/workspace/artifacts/$artifactId"
     | "/workspace/notes/$noteId"
     | "/workspace/projects/$projectId"
+    | "/workspace/settings/environments"
     | "/workspace/threads/$threadId";
   id:
     | "__root__"
@@ -121,6 +133,7 @@ export interface FileRouteTypes {
     | "/workspace/artifacts/$artifactId"
     | "/workspace/notes/$noteId"
     | "/workspace/projects/$projectId"
+    | "/workspace/settings/environments"
     | "/workspace/threads/$threadId";
   fileRoutesById: FileRoutesById;
 }
@@ -181,6 +194,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof WorkspaceProjectsProjectIdRouteImport;
       parentRoute: typeof WorkspaceRoute;
     };
+    "/workspace/settings/environments": {
+      id: "/workspace/settings/environments";
+      path: "/settings/environments";
+      fullPath: "/workspace/settings/environments";
+      preLoaderRoute: typeof WorkspaceSettingsEnvironmentsRouteImport;
+      parentRoute: typeof WorkspaceRoute;
+    };
     "/workspace/threads/$threadId": {
       id: "/workspace/threads/$threadId";
       path: "/threads/$threadId";
@@ -196,6 +216,7 @@ interface WorkspaceRouteChildren {
   WorkspaceArtifactsArtifactIdRoute: typeof WorkspaceArtifactsArtifactIdRoute;
   WorkspaceNotesNoteIdRoute: typeof WorkspaceNotesNoteIdRoute;
   WorkspaceProjectsProjectIdRoute: typeof WorkspaceProjectsProjectIdRoute;
+  WorkspaceSettingsEnvironmentsRoute: typeof WorkspaceSettingsEnvironmentsRoute;
   WorkspaceThreadsThreadIdRoute: typeof WorkspaceThreadsThreadIdRoute;
 }
 
@@ -204,6 +225,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceArtifactsArtifactIdRoute: WorkspaceArtifactsArtifactIdRoute,
   WorkspaceNotesNoteIdRoute: WorkspaceNotesNoteIdRoute,
   WorkspaceProjectsProjectIdRoute: WorkspaceProjectsProjectIdRoute,
+  WorkspaceSettingsEnvironmentsRoute: WorkspaceSettingsEnvironmentsRoute,
   WorkspaceThreadsThreadIdRoute: WorkspaceThreadsThreadIdRoute,
 };
 

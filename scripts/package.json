@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node --check check-architecture.mjs && node --check dev-runner.mjs",
+    "build": "node --check check-architecture.mjs && node --check dev-runner.mjs && node --check glass-connect.mjs && node --check local-database.mjs && node --check local-runtime.mjs && node --check local-setup.mjs && node --check local-reset.mjs",
     "test": "node check-architecture.mjs && vp test run dev-runner.test.mjs",
-    "typecheck": "node --check check-architecture.mjs && node --check dev-runner.mjs"
+    "typecheck": "node --check check-architecture.mjs && node --check dev-runner.mjs && node --check glass-connect.mjs && node --check local-database.mjs && node --check local-runtime.mjs && node --check local-setup.mjs && node --check local-reset.mjs"
   },
   "devDependencies": {
+    "pg": "8.22.0",
     "vite-plus": "catalog:"
   }
 }

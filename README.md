@@ -7,14 +7,14 @@ applications and six boundary-focused packages.
 
 Milestone 3 adds organization-scoped durable product records, typed synchronization, and a
 device-owned offline outbox without making execution a product dependency. The shared web renderer,
-Better Auth entry, and durable product API are deployed together in development, staging, and
-production and have passed live authentication verification. Environment publishing now uses
+Better Auth entry, and durable product API run locally during development and are deployed together
+in staging and production. Production has passed live authentication verification. Environment publishing uses
 durable organization-owned records, environment-held Ed25519 keys, explicit administrator
-approval, proof-bound short-lived credentials, rotation, revocation, and security audit events.
+approval, proof-bound short-lived credentials, revocation, and security audit events.
 Environment publishing, proof-bound credentials, managed per-environment Cloudflare Tunnels,
-stage-scoped proxied DNS, a loopback node origin, direct client WebSockets, key rotation, and durable
-dispatch/results are deployed in development, staging, and production. The production path has
-passed live publishing, managed-tunnel, direct WebSocket, durable-result, rotation, and cleanup
+stage-scoped proxied DNS, a loopback node origin, direct client WebSockets, revocation, and durable
+dispatch/results are deployed in staging and production. The production path has
+passed live publishing, managed-tunnel, direct WebSocket, durable-result, and cleanup
 verification.
 Production-ready multi-user product experiences and releases remain later completion gates. Editor
 collaboration is not one of those Glass milestones:
@@ -47,17 +47,17 @@ vp i
 vp run dev
 ```
 
-`vp run dev` launches the complete browser application: it verifies the development Glass Cloud
-API and authentication boundary, starts the local Vite renderer with HMR and a same-origin product
-proxy, opens the browser, and resumes the execution node when its published identity and workspace
-registry exist. No separate server terminal or frontend deployment is required.
+Run `vp run dev:setup` once with the localhost GitHub OAuth client ID and secret. `vp run dev` then
+starts an isolated Docker PostgreSQL database, applies the committed migration chain, runs the Glass
+Cloud Worker locally, starts Vite with HMR and a same-origin product proxy, and opens the browser.
+No separate server terminal or frontend deployment is required.
 
 Use `vp run dev:web` for the same explicit web entry, `vp run dev:desktop` for the shared live
 renderer in Electron, and `vp run dev:mobile` or `vp run dev:mobile:ios` for Expo. Every client
-entry selects the checked-in development Glass Cloud origin, supplies its client runtime
-configuration, and resumes the same execution node when configured. `GLASS_CLOUD_ORIGIN` and the
-identity/workspace path variables remain explicit operator overrides. The focused `dev:api` and
-`dev:execution-node` tasks are service-level diagnostics, not prerequisites for a client launch.
+entry uses the same local Worker and database and resumes its matching execution node when
+configured. The focused `dev:api` and `dev:execution-node` tasks are service-level diagnostics, not
+prerequisites for a client launch. `vp run glass-connect` publishes the current checkout to this
+local runtime; the public `npx glass-connect@latest` command publishes to production.
 
 Use the repository workflow for verification:
 
@@ -70,33 +70,19 @@ vp run build
 
 ## Publish an execution environment
 
-Build the node, begin pairing, then approve the printed code while signed in to the same Glass
-Cloud origin. The approval link opens the deployed single-page renderer at the Glass Connect
-control; it never contains the pairing code or polling secret.
+Run Glass Connect from the folder you want to use, then approve the printed code in **Settings →
+Environments** while signed in to the same Glass organization. The same process publishes the
+computer, shares the current folder, and remains connected.
 
 ```sh
-vp run --filter @glass/execution-node build
-node apps/execution-node/dist/main.js pair \
-  --api https://your-glass-cloud.example \
-  --name "Build Mac"
+npx glass-connect@latest
 ```
 
-After approval, register each workspace once with a stable UUID and an absolute local path. The
-environment-owned registry defaults to `~/.glass/execution-workspaces.json`:
-
-```sh
-node apps/execution-node/dist/main.js workspace-add \
-  --id 11111111-1111-4111-8111-111111111111 \
-  --name "Glass" \
-  --root /absolute/path/to/Glass
-node apps/execution-node/dist/main.js connect
-```
-
-The node starts a loopback-only origin, obtains its proof-bound tunnel configuration, and
+Open a project and choose the folder from its **Execution** card. The node starts a loopback-only
+origin, obtains its proof-bound tunnel configuration, and
 supervises the pinned connector; users never enter an execution URL. `GLASS_EXECUTION_WORKSPACES`
 remains an explicit process-local override for automation.
 
-The node stores its environment-held key and renewable credential in
-`~/.glass/execution-node.json` with owner-only permissions. Override that location with
-`--identity /absolute/path/to/identity.json` or `GLASS_NODE_IDENTITY_PATH`. See the
+The node stores its environment-held key and renewable credential in its private Glass state
+directory with owner-only permissions. See the
 [execution-node runbook](docs/operations/execution-node.md) for verification and recovery.

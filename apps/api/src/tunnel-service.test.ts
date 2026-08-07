@@ -187,7 +187,7 @@ describe("managed tunnel ticket readiness", () => {
   it.each([
     ["prod", "connect-environment-1.glass.test"],
     ["staging", "connect-staging-environment-1.glass.test"],
-    ["dev", "connect-dev-environment-1.glass.test"],
+    ["local", "connect-local-environment-1.glass.test"],
   ] as const)(
     "keeps the %s Connect hostname within one TLS wildcard label",
     async (stage, expected) => {

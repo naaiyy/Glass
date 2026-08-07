@@ -11,14 +11,10 @@ import {
 } from "@glass/contracts/connect-tunnel";
 import {
   decodeApproveEnvironmentPairingRequest,
-  decodeApproveEnvironmentRotationRequest,
   decodeBeginEnvironmentPairingRequest,
-  decodeBeginEnvironmentRotationRequest,
-  decodeCompleteEnvironmentRotationRequest,
   decodeCompleteEnvironmentProofRequest,
   decodeCreateCredentialChallengeRequest,
   decodeEnvironmentPairingStatusRequest,
-  decodeEnvironmentRotationStatusRequest,
 } from "@glass/contracts/environments";
 import { environmentCredentialScope } from "@glass/contracts/environments";
 import {
@@ -143,10 +139,7 @@ const json = (body: unknown, status = 200): Response =>
     headers: { "cache-control": "no-store" },
   });
 
-const trustPollingRoutes = new Set([
-  "/v1/environment-pairings/status",
-  "/v1/environment-rotations/status",
-]);
+const trustPollingRoutes = new Set(["/v1/environment-pairings/status"]);
 
 const enforceTrustRateLimit = async (
   request: Request,
@@ -631,45 +624,6 @@ const handlePublicEnvironmentRoute = async (
       const body = await readDecodedBody(request, decodeCompleteEnvironmentProofRequest);
       return body instanceof Response ? body : json(await service.exchangeCredential(body), 201);
     }
-    if (request.method === "POST" && url.pathname === "/v1/environment-rotations") {
-      const body = await readDecodedBody(request, decodeBeginEnvironmentRotationRequest);
-      if (body instanceof Response || bindings?.CONNECT_AUTHORITY === undefined)
-        return body instanceof Response ? body : json(productUnavailable, 503);
-      const token = request.headers.get("authorization")?.replace(/^Bearer /u, "") ?? null;
-      if (token === null) return json(unauthorized, 401);
-      const challenge = await bindings.CONNECT_AUTHORITY.getByName(
-        body.environmentId,
-      ).consumeNodeProofChallenge(body.proofChallengeId);
-      if (challenge === null) return json(unauthorized, 401);
-      const credential = await service.verifyCredentialProof(
-        token,
-        environmentCredentialScope,
-        challenge,
-        body.signature,
-      );
-      if (
-        credential === null ||
-        credential.environmentId !== body.environmentId ||
-        credential.organizationId !== body.organizationId
-      )
-        return json(unauthorized, 401);
-      return json(await service.beginRotation(credential, body.publicKey), 201);
-    }
-    if (request.method === "POST" && url.pathname === "/v1/environment-rotations/status") {
-      const body = await readDecodedBody(request, decodeEnvironmentRotationStatusRequest);
-      return body instanceof Response ? body : json(await service.rotationStatus(body));
-    }
-    if (request.method === "POST" && url.pathname === "/v1/environment-rotations/complete") {
-      const body = await readDecodedBody(request, decodeCompleteEnvironmentRotationRequest);
-      if (body instanceof Response) return body;
-      const environment = await service.completeRotation(body);
-      try {
-        await bindings?.CONNECT_AUTHORITY?.getByName(environment.id).disconnect();
-      } finally {
-        await runtime.tunnel?.revoke(environment.id);
-      }
-      return json(environment);
-    }
     if (request.method === "POST" && url.pathname === "/v1/connect/node-challenges") {
       const body = await readJsonBody(request, 4_096);
       if (
@@ -778,12 +732,6 @@ const handleAuthenticatedEnvironmentRoute = async (
       const body = await readDecodedBody(request, decodeApproveEnvironmentPairingRequest);
       if (body instanceof Response) return body;
       await service.approvePairing(userId, body);
-      return new Response(null, { status: 204 });
-    }
-    if (request.method === "POST" && url.pathname === "/v1/environment-rotations/approve") {
-      const body = await readDecodedBody(request, decodeApproveEnvironmentRotationRequest);
-      if (body instanceof Response) return body;
-      await service.approveRotation(userId, body);
       return new Response(null, { status: 204 });
     }
     if (request.method === "GET" && url.pathname === "/v1/environments") {
@@ -1139,8 +1087,7 @@ const handleAuthenticatedRoute = (
         if (
           url.pathname === "/v1/environments" ||
           url.pathname.startsWith("/v1/environments/") ||
-          url.pathname === "/v1/environment-pairings/approve" ||
-          url.pathname === "/v1/environment-rotations/approve"
+          url.pathname === "/v1/environment-pairings/approve"
         ) {
           return await handleAuthenticatedEnvironmentRoute(
             request,
@@ -1178,9 +1125,6 @@ export const handleRequest = (
     url.pathname === "/v1/environment-pairings/status" ||
     url.pathname === "/v1/environment-pairings/complete" ||
     url.pathname.startsWith("/v1/environment-credentials/") ||
-    url.pathname === "/v1/environment-rotations" ||
-    url.pathname === "/v1/environment-rotations/status" ||
-    url.pathname === "/v1/environment-rotations/complete" ||
     url.pathname === "/v1/connect/node-challenges" ||
     url.pathname === "/v1/connect/tunnel-configuration" ||
     url.pathname === "/v1/connect/validate-client-ticket" ||
@@ -1193,7 +1137,6 @@ export const handleRequest = (
     url.pathname.startsWith("/v1/notes/") ||
     url.pathname.startsWith("/v1/sync/") ||
     url.pathname === "/v1/environment-pairings/approve" ||
-    url.pathname === "/v1/environment-rotations/approve" ||
     url.pathname === "/v1/environments" ||
     url.pathname.startsWith("/v1/environments/");
   const executionRoute =

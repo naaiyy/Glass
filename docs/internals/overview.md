@@ -31,24 +31,24 @@ Runnable application and package boundaries, real Glass Cloud authentication, de
 infrastructure, and the durable database connection supply the product foundation. Glass Cloud
 adds organization-scoped product state, transactional change events, synchronization, and
 device-owned outbox behavior. Its migrations, routes, shared web renderer, and GitHub authentication
-entry are deployed in development, staging, and production; the production web authentication and
+entry are deployed in staging and production and run locally during development; production web authentication and
 cloud-owned product flow have passed live verification.
 
 Environment trust supplies durable organization-owned execution-environment identities, explicit
-administrator approval, environment-held Ed25519 proof, short-lived proof-bound credentials, key
-rotation, revocation, and append-only security audit events. The web renderer exposes approval,
+administrator approval, environment-held Ed25519 proof, short-lived proof-bound credentials,
+revocation, and append-only security audit events. The web renderer exposes approval,
 listing, and revocation; the execution node owns its private identity and performs the pairing proof.
 Glass Connect and the execution runtime add the managed outbound per-environment Cloudflare Tunnel, authenticated presence and workspace
 discovery, generation-bound one-time connection tickets, typed dispatch, durable operation intent
 and results, files, commands, terminal/PTY, Git, checkpoints, streaming, reconnect, and bounded
 cancellation. The execution data path is direct from a client through the proxied tunnel hostname to
 the node's loopback origin; Glass Cloud remains the control plane and durable authority. These
-paths are deployed in development, staging, and production and have passed live production trust,
-tunnel, direct WebSocket, durable-result, rotation, and cleanup verification.
+paths are deployed in staging and production and have passed live production trust,
+tunnel, direct WebSocket, durable-result, and cleanup verification.
 
-The web client initiates GitHub authentication directly against Better Auth on the same deployed
-Worker origin. During local web development, Vite preserves that same-origin client model through
-the development Cloud proxy and Better Auth's encrypted OAuth proxy return. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
+The web client initiates GitHub authentication directly against Better Auth on the same Worker
+origin. During local development, Vite preserves that same-origin client model while proxying to the
+locally running Worker and PostgreSQL database. Mobile uses Better Auth's Expo deep-link integration and device-secure cookie
 storage. Packaged desktop uses Better Auth's Electron PKCE handoff through the system browser;
 session material remains in the main process, and an allowlisted IPC adapter performs authenticated
 product requests without exposing cookies to the renderer. No surface substitutes a local identity
@@ -67,7 +67,7 @@ collaboration is not implemented by Glass at a later milestone; OpenEditor owns 
 - Environment schema: `apps/api/src/db/schema.ts`
 - Environment wire contracts: `packages/contracts/src/environments.ts`
 - Node-held identity: `apps/execution-node/src/identity.ts`
-- Publishing UI and client adapter: `apps/web/src/product-cloud/EnvironmentPanel.tsx`, `apps/web/src/product-cloud/environment-cloud.ts`
+- Publishing UI and client adapter: `apps/web/src/product-cloud/EnvironmentSettings.tsx`, `apps/web/src/product-cloud/EnvironmentDirectory.tsx`, `apps/web/src/product-cloud/environment-cloud.ts`
 - Execution runtime boundary: `apps/execution-node/src/main.ts`
 - Tunnel control and durable authority: `apps/api/src/tunnel-service.ts`, `apps/api/src/connect-authority.ts`
 - Loopback tunnel origin and connector supervisor: `apps/execution-node/src/tunnel-origin.ts`, `apps/execution-node/src/cloudflared.ts`

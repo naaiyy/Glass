@@ -36,7 +36,7 @@ describe("execution workspace registry", () => {
     expect((await stat(registry)).mode & 0o777).toBe(0o600);
   });
 
-  it("keeps the environment variable as an explicit compatibility override", async () => {
+  it("uses an explicit process-local workspace override", async () => {
     const { registry, root } = await setup();
     await addWorkspaceRegistration({ id: workspaceId, name: "Stored", root }, registry);
     await expect(
@@ -45,6 +45,11 @@ describe("execution workspace registry", () => {
         JSON.stringify([{ id: otherWorkspaceId, name: "Override", root }]),
       ),
     ).resolves.toEqual([{ id: otherWorkspaceId, name: "Override", root }]);
+  });
+
+  it("starts with an empty catalog before any workspace is registered", async () => {
+    const { registry } = await setup();
+    await expect(loadConfiguredWorkspaces(registry)).resolves.toEqual([]);
   });
 
   it("updates a registration by stable workspace ID", async () => {

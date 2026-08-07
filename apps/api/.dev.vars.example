@@ -1,0 +1,5 @@
+# Copy to .dev.vars through `vp run dev:setup`; never commit the populated file.
+BETTER_AUTH_SECRET=
+CONNECT_TICKET_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=

@@ -5,9 +5,9 @@
 ## Current status
 
 Production implements durable environment registration, administrator approval, Ed25519 proof
-of possession, short-lived scoped credential exchange, two-key rotation, revocation, and append-only
-security events, the managed tunnel lifecycle, and the direct execution protocol. The production
-path has passed live publishing, credential, rotation, managed-tunnel, direct WebSocket,
+of possession, short-lived scoped credential exchange, revocation, and append-only security
+events, the managed tunnel lifecycle, and the direct execution protocol. The production
+path has passed live publishing, credential, managed-tunnel, direct WebSocket,
 durable-result, and cleanup verification.
 
 ## Required cloud bindings
@@ -34,18 +34,18 @@ also be present. A Cloudflare account with no active zone cannot host a producti
 a temporary or randomly assigned quick tunnel is not an acceptable substitute.
 
 Each stage supplies its intended zone through `CONNECT_TUNNEL_ZONE_NAME`. Review the generated
-hostnames and provider plan to confirm that development, staging, and production resources remain
+hostnames and provider plan to confirm that staging and production resources remain
 isolated.
 
-Pairing, credential, and rotation mutations use the lower client-IP-and-host limit. Pairing and
-rotation status polls use the separate higher limit. Authenticated node challenges and control
+Pairing and credential mutations use the lower client-IP-and-host limit. Pairing status polls use
+the separate higher limit. Authenticated node challenges and control
 requests use the environment-and-credential limiter so durable result delivery cannot exhaust the
 public trust buckets. Each deployment stage uses deterministic, distinct Cloudflare
 rate-limit namespaces, so test traffic cannot consume production capacity. An exhausted limit
 returns `429` and `Retry-After: 60`; a
 missing binding makes public environment-trust routes fail closed with `503`.
 
-Never place private keys, raw credentials, pairing or rotation polling tokens, proof signatures,
+Never place private keys, raw credentials, pairing polling tokens, proof signatures,
 ticket secrets, or challenge payloads in deployment output, logs, analytics, fixtures, or incident
 notes.
 
@@ -59,23 +59,20 @@ After reviewing and applying the committed migration chain and Cloudflare plan:
 2. Publish a disposable execution environment. Verify the approval requires a real signed-in
    organization administrator and that a different authorized device can list the environment.
 3. Exchange a credential, then replay the consumed proof challenge and require rejection.
-4. Rotate the environment key. Require administrator approval and proofs from both the current and
-   replacement keys; verify old credentials no longer work and an idempotent completion retry
-   returns the rotated environment.
-5. Start the node and verify that exactly one remotely managed tunnel exists for the disposable
+4. Start the node and verify that exactly one remotely managed tunnel exists for the disposable
    environment, its stage-scoped CNAME is proxied, ingress targets only the reported loopback
    origin, and the fallback ingress returns `404`. Confirm the node never logs or persists the
    connector token.
-6. From a second signed-in device, obtain a one-time ticket and connect through the public hostname.
+5. From a second signed-in device, obtain a one-time ticket and connect through the public hostname.
    Confirm the ticket is carried in the WebSocket subprotocol rather than the URL, replay fails,
    the node welcome verifies against the environment key, and execution frames do not traverse the
    API Worker or Durable Object.
-7. Revoke the environment. Verify it disappears from authorized discovery, active connectivity is
+6. Revoke the environment. Verify it disappears from authorized discovery, active connectivity is
    disconnected, credential exchange fails, the connector and loopback origin stop, and provider
    tunnel/DNS cleanup converges after retry.
-8. Inspect security events for the request, approval, completion, credential, rotation, and
+7. Inspect security events for the request, approval, completion, credential, and
    revocation actors and timestamps. Confirm no secret or proof material appears in metadata.
-9. Exercise more than 20 trust mutations from one test source within a minute and require `429`
+8. Exercise more than 20 trust mutations from one test source within a minute and require `429`
    with `Retry-After: 60`. Separately confirm two-second status polling is not charged to that
    mutation bucket.
 
@@ -87,8 +84,6 @@ step; deleting or signing out a client session is not a substitute.
 - Lost environment identity file: revoke the environment from an authorized administrator session,
   then publish it as a new environment. Glass Cloud cannot recover its private key.
 - Suspected private-key exposure: revoke immediately. Do not rely on credential expiry alone.
-- Interrupted rotation: rerun the node rotation command. The staged replacement key and ceremony
-  survive process restart; completion is retry-safe after Cloud commits.
 - Unexpected request flood: retain the Rate Limit bindings, review aggregate Cloudflare telemetry
   and secret-free security events, and revoke affected environments where trust may be compromised.
 - Offline or revoked node: keep Glass Cloud product access available and report execution as

@@ -12,3 +12,5 @@ dist-electron/
 .env
 .env.*
 !.env.example
+apps/api/.dev.vars
+.glass-local/

@@ -169,4 +169,25 @@ describe("connector binary verification", () => {
     expect(scheduledAfterExit).toBe(true);
     await supervisor.stop();
   });
+
+  it("does not schedule a retry when a fatal handler stops the supervisor", async () => {
+    let scheduled = false;
+    let supervisor!: CloudflaredSupervisor;
+    supervisor = new CloudflaredSupervisor({
+      getConfiguration: async () => {
+        throw new Error("terminal identity failure");
+      },
+      installRoot: "/unused",
+      onFatal: () => {
+        void supervisor.stop();
+      },
+      schedule: () => {
+        scheduled = true;
+        return 1 as unknown as ReturnType<typeof setTimeout>;
+      },
+    });
+    supervisor.start();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(scheduled).toBe(false);
+  });
 });

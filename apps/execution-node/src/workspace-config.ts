@@ -18,8 +18,7 @@ export const decodeWorkspaceRegistrations = (
   input: unknown,
   source: string,
 ): readonly ExecutionNodeWorkspace[] => {
-  if (!Array.isArray(input) || input.length === 0)
-    throw new Error(`${source} must register at least one workspace.`);
+  if (!Array.isArray(input)) throw new Error(`${source} must be an array.`);
   const ids = new Set<string>();
   return input.map((candidate, index) => {
     if (
@@ -84,17 +83,7 @@ export const loadConfiguredWorkspaces = async (
       "GLASS_EXECUTION_WORKSPACES",
     );
   }
-  try {
-    return await loadWorkspaceRegistry(path);
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      throw new Error(
-        `No execution workspace registry exists at ${path}. Run workspace-add or set GLASS_EXECUTION_WORKSPACES.`,
-        { cause: error },
-      );
-    }
-    throw error;
-  }
+  return loadWorkspaceRegistry(path, { allowMissing: true });
 };
 
 export const saveWorkspaceRegistry = async (

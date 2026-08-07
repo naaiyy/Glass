@@ -3,7 +3,6 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { ExecutionCard } from "../execution/ExecutionCard.tsx";
 import { errorMessage } from "../lib/errors.ts";
 import type { RootStack } from "../navigation/routes.ts";
 import { useMobileCloud } from "../product-cloud/ProductCloudProvider.tsx";
@@ -28,7 +27,6 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
     retry,
     retryOutboxItem,
     selectOrganization,
-    signOut,
     view,
   } = useMobileCloud();
   const [organizationName, setOrganizationName] = useState("");
@@ -162,13 +160,6 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
         <Text className="mt-2 text-sm text-destructive">{inputError}</Text>
       )}
 
-      {view.scope === null ? null : (
-        <ExecutionCard
-          organizationId={view.scope.organizationId}
-          projects={snapshot?.projects ?? []}
-        />
-      )}
-
       {snapshot === null ? null : (
         <>
           <View>
@@ -222,9 +213,6 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
         </>
       )}
 
-      {authenticatedUserId === null ? null : (
-        <ActionButton label="Sign out" onPress={() => runCloudAction(signOut())} />
-      )}
       <StatusBar />
     </ScrollView>
   );

@@ -25,12 +25,16 @@ Publishing and sign-in are separate actions:
 
 1. A user signs into Glass Cloud and can discover environments already published to organizations
    they may access.
-2. On a capable computer, the user explicitly chooses to publish the environment and an authorized
-   organization administrator approves it.
+2. On a capable computer, the user explicitly starts Glass Connect. If the computer is not already
+   published, the launcher displays a one-time code. In **Settings → Environments**, an organization
+   administrator enters that code. Pairing makes the environment available to all organization
+   projects and supported capabilities; there are no access choices in this flow.
 3. The node proves possession of its environment-held Ed25519 key and obtains a short-lived,
    audience-bound credential.
-4. The node binds an HTTP/WebSocket origin to `127.0.0.1`, requests tunnel configuration with a
-   fresh DPoP-style proof, and supervises the pinned, checksum-verified connector.
+4. Without requiring another command, the node binds an HTTP/WebSocket origin to `127.0.0.1`, requests tunnel configuration with a
+   fresh DPoP-style proof, and supervises the pinned, checksum-verified connector. A missing or
+   revoked environment identity is terminal for that connector. Starting Glass Connect again
+   creates a fresh publication ceremony instead of retrying it as a transient network failure.
 5. Glass Cloud creates or reconciles one remotely managed tunnel and proxied DNS record for that
    environment and stage. The only ingress maps the environment hostname to the loopback origin;
    unmatched requests receive `404`.
@@ -71,10 +75,8 @@ acknowledges the durable record. A terminal operation is complete only when its 
 recorded, not when a socket write succeeds. Presence and the bounded workspace catalog are
 published under the same proof-bound node authority. Heartbeats expire to an honest offline state.
 
-## Rotation, revocation, and failure
+## Revocation and failure
 
-- Rotation increments the environment key version and tunnel generation. Existing credentials,
-  tickets, and sessions cannot authenticate under the replacement key.
 - Revocation transactionally removes execution authority and schedules forced connector cleanup.
   The node stops its connector and loopback origin; the control plane deletes the remotely managed
   tunnel and proxied DNS allocation. Cleanup is durable and retryable after a partial provider
@@ -92,10 +94,11 @@ published under the same proof-bound node authority. Heartbeats expire to an hon
 
 The tunnel control plane, direct client transport, loopback node origin, connector supervision,
 proof-bound authority, durable dispatch and result acknowledgement, and web, desktop, and native
-mobile integrations are deployed. Development, staging, and production use the delegated
-`glassapp.dev` zone and isolated stage resources. Production has passed live tunnel creation,
-proxied DNS, connector startup, direct ticketed WebSocket execution, durable result recovery, key
-rotation, revocation, and provider cleanup. No local mock, quick tunnel, user-managed endpoint, or
+mobile integrations are implemented. Staging and production use the delegated `glassapp.dev` zone
+and isolated resources. Local development uses local cloud authority with an explicit remote binding
+to staging's tunnel-control service. Production has passed live tunnel creation,
+proxied DNS, connector startup, direct ticketed WebSocket execution, durable result recovery,
+revocation, and provider cleanup. No local mock, quick tunnel, user-managed endpoint, or
 alternate transport is part of this path.
 
 ## Source map

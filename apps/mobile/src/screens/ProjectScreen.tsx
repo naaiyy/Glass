@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Pressable, Text } from "react-native";
 
 import { errorMessage } from "../lib/errors.ts";
+import { ProjectExecutionSetup } from "../execution/ProjectExecutionSetup.tsx";
 import { decodeRouteId } from "../navigation/decode-route-id.ts";
 import type { RootStack } from "../navigation/routes.ts";
 import { useMobileCloud } from "../product-cloud/ProductCloudProvider.tsx";
@@ -47,6 +48,7 @@ export const ProjectScreen = ({
   return (
     <DetailLayout title={project.name}>
       {error === null ? null : <Text className="text-sm text-destructive">{error}</Text>}
+      <ProjectExecutionSetup organizationId={project.organizationId} projectId={project.id} />
       <StateCard title="Threads">
         <AppInput
           editable={creating === null}

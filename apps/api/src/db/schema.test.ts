@@ -250,9 +250,6 @@ describe("durable execution environment identity schema", () => {
       "pairing-approved",
       "pairing-completed",
       "credential-issued",
-      "key-rotation-requested",
-      "key-rotation-approved",
-      "key-rotated",
       "environment-revoked",
     ]);
   });

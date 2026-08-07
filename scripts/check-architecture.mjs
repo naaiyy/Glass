@@ -28,6 +28,8 @@ assert.equal(
 );
 assert.match(rootManifest.scripts["dev:desktop"], /scripts\/dev-runner\.mjs desktop/u);
 assert.match(rootManifest.scripts["dev:mobile"], /scripts\/dev-runner\.mjs mobile/u);
+assert.match(rootManifest.scripts["dev:api"], /scripts\/dev-runner\.mjs api/u);
+assert.match(rootManifest.scripts["dev:setup"], /scripts\/local-setup\.mjs/u);
 
 function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -442,6 +444,12 @@ assert.match(
 assert.match(desktopSource, /sandbox:\s*true/u, "desktop must sandbox the renderer");
 
 const ciWorkflow = read(".github/workflows/ci.yml");
+const cloudWorkflow = read(".github/workflows/cloud.yml");
+assert.doesNotMatch(
+  cloudWorkflow,
+  /development\s*$/mu,
+  "persistent cloud deployment must be limited to staging and production",
+);
 assert.match(
   ciWorkflow,
   /vp run --filter @glass\/desktop ensure:electron/u,

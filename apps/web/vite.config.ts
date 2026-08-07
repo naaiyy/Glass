@@ -19,7 +19,7 @@ const proxy =
             ...(path === "/api"
               ? { headers: { "x-glass-development-origin": developmentOrigin } }
               : {}),
-            secure: true,
+            secure: new URL(cloudOrigin).protocol === "https:",
             xfwd: false,
           },
         ]),

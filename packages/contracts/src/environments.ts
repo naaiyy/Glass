@@ -18,7 +18,6 @@ import {
 
 export const environmentCredentialScope = "glass-connect" as const;
 export const environmentPairingApprovalPath = "/#glass-connect-pair" as const;
-export const environmentRotationApprovalPath = "/#glass-connect-rotate" as const;
 export const maxEnvironmentDisplayNameLength = 120 as const;
 export const maxEnvironmentPlatformLength = 80 as const;
 
@@ -66,44 +65,6 @@ export type EnvironmentPairingStatusRequest = Readonly<{
 export type EnvironmentPairingStatus =
   | Readonly<{ status: "pending"; expiresAt: IsoDateTime }>
   | Readonly<{ status: "approved"; challenge: string; expiresAt: IsoDateTime }>;
-
-export type BeginEnvironmentRotationRequest = Readonly<{
-  environmentId: ExecutionEnvironmentId;
-  organizationId: OrganizationId;
-  publicKey: EnvironmentPublicKey;
-  proofChallengeId: EnvironmentChallengeId;
-  signature: EnvironmentProof;
-}>;
-
-export type BeginEnvironmentRotationResponse = Readonly<{
-  rotationId: EnvironmentChallengeId;
-  rotationCode: string;
-  pollingToken: string;
-  approvalPath: string;
-  expiresAt: IsoDateTime;
-}>;
-
-export type ApproveEnvironmentRotationRequest = Readonly<{
-  organizationId: OrganizationId;
-  rotationCode: string;
-}>;
-
-export type EnvironmentRotationStatusRequest = Readonly<{
-  rotationId: EnvironmentChallengeId;
-  pollingToken: string;
-}>;
-
-export type EnvironmentRotationStatus =
-  | Readonly<{ status: "pending"; expiresAt: IsoDateTime }>
-  | Readonly<{ status: "approved"; challenge: string; expiresAt: IsoDateTime }>
-  | Readonly<{ status: "completed"; environment: ExecutionEnvironment }>;
-
-export type CompleteEnvironmentRotationRequest = Readonly<{
-  rotationId: EnvironmentChallengeId;
-  pollingToken: string;
-  currentKeySignature: EnvironmentProof;
-  replacementKeySignature: EnvironmentProof;
-}>;
 
 export type EnvironmentIdentityChallenge = Readonly<{
   challengeId: EnvironmentChallengeId;
@@ -245,142 +206,6 @@ export const decodeEnvironmentPairingStatusRequest = (
   if (!pairingId.ok || !pollingToken.ok)
     return decodeFailure("$pairingStatus", "invalid_type", "Invalid pairing status request.");
   return decodeSuccess({ pairingId: pairingId.value, pollingToken: pollingToken.value });
-};
-
-export const decodeBeginEnvironmentRotationRequest = (
-  input: unknown,
-): DecodeResult<BeginEnvironmentRotationRequest> => {
-  const record = decodeRecord(input, "$beginRotation");
-  if (!record.ok) return record;
-  const keys = rejectUnknown(
-    record.value,
-    ["environmentId", "organizationId", "publicKey", "proofChallengeId", "signature"],
-    "$beginRotation",
-  );
-  if (!keys.ok) return keys;
-  const environmentId = decodeId<ExecutionEnvironmentId>(
-    record.value.environmentId,
-    "$beginRotation.environmentId",
-  );
-  const organizationId = decodeId<OrganizationId>(
-    record.value.organizationId,
-    "$beginRotation.organizationId",
-  );
-  const publicKey = decodePublicKey(record.value.publicKey, "$beginRotation.publicKey");
-  const proofChallengeId = decodeId<EnvironmentChallengeId>(
-    record.value.proofChallengeId,
-    "$beginRotation.proofChallengeId",
-  );
-  const signature = decodeProof(record.value.signature, "$beginRotation.signature");
-  const issues = [environmentId, organizationId, publicKey, proofChallengeId, signature].flatMap(
-    (result) => (result.ok ? [] : result.issues),
-  );
-  if (issues.length > 0) return { ok: false, issues };
-  if (
-    !environmentId.ok ||
-    !organizationId.ok ||
-    !publicKey.ok ||
-    !proofChallengeId.ok ||
-    !signature.ok
-  )
-    return decodeFailure("$beginRotation", "invalid_type", "Invalid rotation request.");
-  return decodeSuccess({
-    environmentId: environmentId.value,
-    organizationId: organizationId.value,
-    publicKey: publicKey.value,
-    proofChallengeId: proofChallengeId.value,
-    signature: signature.value,
-  });
-};
-
-export const decodeApproveEnvironmentRotationRequest = (
-  input: unknown,
-): DecodeResult<ApproveEnvironmentRotationRequest> => {
-  const record = decodeRecord(input, "$approveRotation");
-  if (!record.ok) return record;
-  const keys = rejectUnknown(record.value, ["organizationId", "rotationCode"], "$approveRotation");
-  if (!keys.ok) return keys;
-  const organizationId = decodeId<OrganizationId>(
-    record.value.organizationId,
-    "$approveRotation.organizationId",
-  );
-  const rotationCode = decodeString(record.value.rotationCode, "$approveRotation.rotationCode", {
-    minLength: 11,
-    maxLength: 11,
-  });
-  const issues = [organizationId, rotationCode].flatMap((result) =>
-    result.ok ? [] : result.issues,
-  );
-  if (issues.length > 0) return { ok: false, issues };
-  if (!organizationId.ok || !rotationCode.ok)
-    return decodeFailure("$approveRotation", "invalid_type", "Invalid rotation approval.");
-  return decodeSuccess({
-    organizationId: organizationId.value,
-    rotationCode: rotationCode.value.toUpperCase(),
-  });
-};
-
-export const decodeEnvironmentRotationStatusRequest = (
-  input: unknown,
-): DecodeResult<EnvironmentRotationStatusRequest> => {
-  const record = decodeRecord(input, "$rotationStatus");
-  if (!record.ok) return record;
-  const keys = rejectUnknown(record.value, ["rotationId", "pollingToken"], "$rotationStatus");
-  if (!keys.ok) return keys;
-  const rotationId = decodeId<EnvironmentChallengeId>(
-    record.value.rotationId,
-    "$rotationStatus.rotationId",
-  );
-  const pollingToken = decodeString(record.value.pollingToken, "$rotationStatus.pollingToken", {
-    minLength: 43,
-    maxLength: 128,
-  });
-  const issues = [rotationId, pollingToken].flatMap((result) => (result.ok ? [] : result.issues));
-  if (issues.length > 0) return { ok: false, issues };
-  if (!rotationId.ok || !pollingToken.ok)
-    return decodeFailure("$rotationStatus", "invalid_type", "Invalid rotation status request.");
-  return decodeSuccess({ rotationId: rotationId.value, pollingToken: pollingToken.value });
-};
-
-export const decodeCompleteEnvironmentRotationRequest = (
-  input: unknown,
-): DecodeResult<CompleteEnvironmentRotationRequest> => {
-  const record = decodeRecord(input, "$completeRotation");
-  if (!record.ok) return record;
-  const keys = rejectUnknown(
-    record.value,
-    ["rotationId", "pollingToken", "currentKeySignature", "replacementKeySignature"],
-    "$completeRotation",
-  );
-  if (!keys.ok) return keys;
-  const rotationId = decodeId<EnvironmentChallengeId>(
-    record.value.rotationId,
-    "$completeRotation.rotationId",
-  );
-  const pollingToken = decodeString(record.value.pollingToken, "$completeRotation.pollingToken", {
-    minLength: 43,
-    maxLength: 128,
-  });
-  const currentKeySignature = decodeProof(
-    record.value.currentKeySignature,
-    "$completeRotation.currentKeySignature",
-  );
-  const replacementKeySignature = decodeProof(
-    record.value.replacementKeySignature,
-    "$completeRotation.replacementKeySignature",
-  );
-  const issues = [rotationId, pollingToken, currentKeySignature, replacementKeySignature].flatMap(
-    (result) => (result.ok ? [] : result.issues),
-  );
-  if (issues.length > 0) return { ok: false, issues };
-  if (!rotationId.ok || !pollingToken.ok || !currentKeySignature.ok || !replacementKeySignature.ok)
-    return decodeFailure("$completeRotation", "invalid_type", "Invalid rotation completion.");
-  return decodeSuccess({
-    rotationId: rotationId.value,
-    pollingToken: pollingToken.value,
-    currentKeySignature: currentKeySignature.value,
-    replacementKeySignature: replacementKeySignature.value,
-  });
 };
 
 export const decodeCompleteEnvironmentProofRequest = (
@@ -564,15 +389,14 @@ export const decodeExecutionEnvironmentList = (
   return decodeSuccess(environments);
 };
 
-const decodeApprovalResponse = (
+export const decodeBeginEnvironmentPairingResponse = (
   input: unknown,
-  kind: "pairing" | "rotation",
-): DecodeResult<BeginEnvironmentPairingResponse | BeginEnvironmentRotationResponse> => {
-  const path = kind === "pairing" ? "$pairingResponse" : "$rotationResponse";
+): DecodeResult<BeginEnvironmentPairingResponse> => {
+  const path = "$pairingResponse";
   const record = decodeRecord(input, path);
   if (!record.ok) return record;
-  const idKey = kind === "pairing" ? "pairingId" : "rotationId";
-  const codeKey = kind === "pairing" ? "pairingCode" : "rotationCode";
+  const idKey = "pairingId";
+  const codeKey = "pairingCode";
   const keys = rejectUnknown(
     record.value,
     [idKey, codeKey, "pollingToken", "approvalPath", "expiresAt"],
@@ -588,11 +412,9 @@ const decodeApprovalResponse = (
     minLength: 43,
     maxLength: 128,
   });
-  const expectedPath =
-    kind === "pairing" ? environmentPairingApprovalPath : environmentRotationApprovalPath;
   const approvalPath =
-    record.value.approvalPath === expectedPath
-      ? decodeSuccess(expectedPath)
+    record.value.approvalPath === environmentPairingApprovalPath
+      ? decodeSuccess(environmentPairingApprovalPath)
       : decodeFailure(`${path}.approvalPath`, "invalid_format", "Unexpected approval path.");
   const expiresAt = decodeIsoDateTime(record.value.expiresAt, `${path}.expiresAt`);
   const issues = [id, code, pollingToken, approvalPath, expiresAt].flatMap((result) =>
@@ -601,34 +423,14 @@ const decodeApprovalResponse = (
   if (issues.length > 0) return { ok: false, issues };
   if (!id.ok || !code.ok || !pollingToken.ok || !approvalPath.ok || !expiresAt.ok)
     return decodeFailure(path, "invalid_type", "Invalid approval response.");
-  return decodeSuccess(
-    kind === "pairing"
-      ? {
-          pairingId: id.value,
-          pairingCode: code.value,
-          pollingToken: pollingToken.value,
-          approvalPath: approvalPath.value,
-          expiresAt: expiresAt.value,
-        }
-      : {
-          rotationId: id.value,
-          rotationCode: code.value,
-          pollingToken: pollingToken.value,
-          approvalPath: approvalPath.value,
-          expiresAt: expiresAt.value,
-        },
-  );
+  return decodeSuccess({
+    pairingId: id.value,
+    pairingCode: code.value,
+    pollingToken: pollingToken.value,
+    approvalPath: approvalPath.value,
+    expiresAt: expiresAt.value,
+  });
 };
-
-export const decodeBeginEnvironmentPairingResponse = (
-  input: unknown,
-): DecodeResult<BeginEnvironmentPairingResponse> =>
-  decodeApprovalResponse(input, "pairing") as DecodeResult<BeginEnvironmentPairingResponse>;
-
-export const decodeBeginEnvironmentRotationResponse = (
-  input: unknown,
-): DecodeResult<BeginEnvironmentRotationResponse> =>
-  decodeApprovalResponse(input, "rotation") as DecodeResult<BeginEnvironmentRotationResponse>;
 
 export const decodeEnvironmentPairingStatus = (
   input: unknown,
@@ -658,23 +460,6 @@ export const decodeEnvironmentPairingStatus = (
   return challenge.ok
     ? decodeSuccess({ status, challenge: challenge.value, expiresAt: expiresAt.value })
     : challenge;
-};
-
-export const decodeEnvironmentRotationStatus = (
-  input: unknown,
-): DecodeResult<EnvironmentRotationStatus> => {
-  const record = decodeRecord(input, "$rotationStatusResponse");
-  if (!record.ok) return record;
-  if (record.value.status === "completed") {
-    const keys = rejectUnknown(record.value, ["status", "environment"], "$rotationStatusResponse");
-    if (!keys.ok) return keys;
-    const environment = decodeExecutionEnvironment(record.value.environment);
-    return environment.ok
-      ? decodeSuccess({ status: "completed", environment: environment.value })
-      : environment;
-  }
-  const paired = decodeEnvironmentPairingStatus(input);
-  return paired.ok ? decodeSuccess(paired.value) : paired;
 };
 
 export const decodeEnvironmentCredential = (

@@ -12,8 +12,11 @@ import { Input } from "~/components/ui/input";
 import { Spinner } from "~/components/ui/spinner";
 import { cn } from "~/lib/utils";
 import { AuthenticationScreen } from "../AuthenticationScreen.tsx";
-import { EnvironmentPanel } from "./EnvironmentPanel.tsx";
+import { useEnvironmentDirectory } from "./environment-directory-context.ts";
+import { EnvironmentDirectoryProvider } from "./EnvironmentDirectory.tsx";
+import { EnvironmentSettings } from "./EnvironmentSettings.tsx";
 import { OrganizationDirectory } from "./OrganizationDirectory.tsx";
+import { ProjectExecutionSetup } from "./ProjectExecutionSetup.tsx";
 import { useProductCloud } from "./ProductCloudProvider.tsx";
 import { resolveWebProductDestination } from "./routing.ts";
 import { WorkspaceHeaderContent, WorkspaceHeaderTargetProvider } from "./WorkspaceHeader.tsx";
@@ -218,7 +221,32 @@ export const AuthProductScreen = () => {
   return <ErrorState />;
 };
 
-export const WorkspaceProductLayout = () => {
+const WorkspaceConnectionStatus = () => {
+  const directory = useEnvironmentDirectory();
+  const active = directory.environments.filter((environment) => environment.revokedAt === null);
+  const online = active.filter(
+    (environment) => directory.presence[environment.id]?.status === "online",
+  ).length;
+  const label =
+    active.length === 0 ? "No environments" : online > 0 ? `${online} online` : "Execution offline";
+  return (
+    <Link
+      className={buttonVariants({ className: "min-h-9", variant: "ghost" })}
+      to="/workspace/settings/environments"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "size-2 rounded-full",
+          online > 0 ? "bg-emerald-500" : "bg-muted-foreground/60",
+        )}
+      />
+      {label}
+    </Link>
+  );
+};
+
+const WorkspaceLayoutContent = () => {
   const { signOut, view } = useProductCloud();
   const [error, setError] = useState<string | null>(null);
   const [headerTarget, setHeaderTarget] = useState<HTMLDivElement | null>(null);
@@ -230,6 +258,13 @@ export const WorkspaceProductLayout = () => {
     <WorkspaceHeaderTargetProvider target={headerTarget}>
       <nav className="sticky top-0 z-50 flex min-h-12 items-center gap-2 bg-background/95 py-2 backdrop-blur-sm">
         <div className="flex min-w-0 flex-1 items-center gap-2" ref={setHeaderTarget} />
+        <WorkspaceConnectionStatus />
+        <Link
+          className={buttonVariants({ className: "min-h-9", variant: "ghost" })}
+          to="/workspace/settings/environments"
+        >
+          Settings
+        </Link>
         <Button
           className="shrink-0"
           onClick={() => {
@@ -257,6 +292,15 @@ export const WorkspaceProductLayout = () => {
   );
 };
 
+export const WorkspaceProductLayout = () => {
+  const { organizationId } = useProductCloud();
+  return (
+    <EnvironmentDirectoryProvider organizationId={organizationId}>
+      <WorkspaceLayoutContent />
+    </EnvironmentDirectoryProvider>
+  );
+};
+
 export const WorkspaceProductScreen = () => {
   const {
     bootstrapOrganization,
@@ -276,9 +320,6 @@ export const WorkspaceProductScreen = () => {
         onSelect={selectOrganization}
         userId={view.userId}
       />
-      {organizationId === null ? null : (
-        <EnvironmentPanel organizationId={organizationId} projects={snapshot?.projects ?? []} />
-      )}
       {snapshot === null ? null : (
         <SnapshotSummary
           onCreateProject={async (name) => {
@@ -290,6 +331,12 @@ export const WorkspaceProductScreen = () => {
       )}
     </>
   );
+};
+
+export const EnvironmentSettingsScreen = () => {
+  const { organizationId, view } = useProductCloud();
+  if (!("userId" in view) || organizationId === null) return null;
+  return <EnvironmentSettings organizationId={organizationId} />;
 };
 
 const decodeRouteId = <Id extends string>(value: string, path: string): Id | null => {
@@ -412,6 +459,7 @@ export const ProjectProductScreen = () => {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+        <ProjectExecutionSetup organizationId={project.organizationId} projectId={project.id} />
         <Card>
           <CardHeader>
             <CardTitle>Threads</CardTitle>
