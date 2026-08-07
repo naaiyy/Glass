@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AuthRouteImport } from "./routes/auth";
-import { Route as OrganizationsRouteImport } from "./routes/organizations";
 import { Route as WorkspaceRouteImport } from "./routes/workspace";
 import { Route as WorkspaceIndexRouteImport } from "./routes/workspace.index";
 import { Route as WorkspaceArtifactsArtifactIdRouteImport } from "./routes/workspace.artifacts.$artifactId";
@@ -27,11 +26,6 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: "/auth",
   path: "/auth",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const OrganizationsRoute = OrganizationsRouteImport.update({
-  id: "/organizations",
-  path: "/organizations",
   getParentRoute: () => rootRouteImport,
 } as any);
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -71,7 +65,6 @@ const WorkspaceThreadsThreadIdRoute =
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/auth": typeof AuthRoute;
-  "/organizations": typeof OrganizationsRoute;
   "/workspace": typeof WorkspaceRouteWithChildren;
   "/workspace/": typeof WorkspaceIndexRoute;
   "/workspace/artifacts/$artifactId": typeof WorkspaceArtifactsArtifactIdRoute;
@@ -82,7 +75,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/auth": typeof AuthRoute;
-  "/organizations": typeof OrganizationsRoute;
   "/workspace": typeof WorkspaceIndexRoute;
   "/workspace/artifacts/$artifactId": typeof WorkspaceArtifactsArtifactIdRoute;
   "/workspace/notes/$noteId": typeof WorkspaceNotesNoteIdRoute;
@@ -93,7 +85,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/auth": typeof AuthRoute;
-  "/organizations": typeof OrganizationsRoute;
   "/workspace": typeof WorkspaceRouteWithChildren;
   "/workspace/": typeof WorkspaceIndexRoute;
   "/workspace/artifacts/$artifactId": typeof WorkspaceArtifactsArtifactIdRoute;
@@ -106,7 +97,6 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/auth"
-    | "/organizations"
     | "/workspace"
     | "/workspace/"
     | "/workspace/artifacts/$artifactId"
@@ -117,7 +107,6 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/auth"
-    | "/organizations"
     | "/workspace"
     | "/workspace/artifacts/$artifactId"
     | "/workspace/notes/$noteId"
@@ -127,7 +116,6 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/auth"
-    | "/organizations"
     | "/workspace"
     | "/workspace/"
     | "/workspace/artifacts/$artifactId"
@@ -139,7 +127,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   AuthRoute: typeof AuthRoute;
-  OrganizationsRoute: typeof OrganizationsRoute;
   WorkspaceRoute: typeof WorkspaceRouteWithChildren;
 }
 
@@ -157,13 +144,6 @@ declare module "@tanstack/react-router" {
       path: "/auth";
       fullPath: "/auth";
       preLoaderRoute: typeof AuthRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/organizations": {
-      id: "/organizations";
-      path: "/organizations";
-      fullPath: "/organizations";
-      preLoaderRoute: typeof OrganizationsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/workspace": {
@@ -234,7 +214,6 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
-  OrganizationsRoute: OrganizationsRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
 };
 export const routeTree = rootRouteImport

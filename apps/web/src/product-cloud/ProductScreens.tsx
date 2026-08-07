@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
 import { Spinner } from "~/components/ui/spinner";
 import { cn } from "~/lib/utils";
@@ -24,6 +25,13 @@ const NoteEditor = lazy(() =>
 
 const summaryLabel = (count: number, noun: string): string =>
   `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+const CenteredLoadingState = ({ label }: Readonly<{ label: string }>) => (
+  <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center gap-2 text-sm text-muted-foreground">
+    <Spinner />
+    {label}
+  </div>
+);
 
 const SnapshotSummary = ({
   onCreateNote,
@@ -43,6 +51,16 @@ const SnapshotSummary = ({
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
+  const visibleNotes = snapshot.artifacts.filter(
+    (artifact): artifact is NoteArtifact =>
+      artifact.kind === "note" && artifact.projectId === noteProjectId,
+  );
+
+  useEffect(() => {
+    if (!snapshot.projects.some((project) => project.id === noteProjectId)) {
+      setNoteProjectId(snapshot.projects[0]?.id ?? "");
+    }
+  }, [noteProjectId, snapshot.projects]);
 
   const submitNote = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -88,19 +106,18 @@ const SnapshotSummary = ({
   };
 
   return (
-    <section className="mt-8 grid gap-4" aria-label="Cloud product snapshot">
+    <section className="mt-8 flex flex-col gap-4" aria-label="Cloud product snapshot">
       <div>
         <p className="text-xs font-medium text-muted-foreground">Organization</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{snapshot.organization.name}</h1>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Projects</CardTitle>
-            <CardDescription>Cloud-owned spaces for related work.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
-            <form className="grid gap-2" onSubmit={(event) => void submitProject(event)}>
+          <CardContent className="flex flex-col gap-2">
+            <form className="flex flex-col gap-2" onSubmit={(event) => void submitProject(event)}>
               <Input
                 aria-label="Project name"
                 disabled={creatingProject}
@@ -141,7 +158,7 @@ const SnapshotSummary = ({
                 params={{ projectId: project.id }}
                 to="/workspace/projects/$projectId"
               >
-                <span className="grid min-w-0 gap-0.5 text-left">
+                <span className="flex min-w-0 flex-col gap-0.5 text-left">
                   <strong className="truncate">{project.name}</strong>
                   <span className="truncate font-normal text-muted-foreground">
                     {project.description ?? "No description"}
@@ -154,9 +171,8 @@ const SnapshotSummary = ({
         <Card>
           <CardHeader>
             <CardTitle>Threads</CardTitle>
-            <CardDescription>Durable conversations in this organization.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
+          <CardContent className="flex flex-col gap-2">
             {snapshot.threads.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">No threads yet.</p>
             ) : null}
@@ -170,7 +186,7 @@ const SnapshotSummary = ({
                 params={{ threadId: thread.id }}
                 to="/workspace/threads/$threadId"
               >
-                <span className="grid gap-0.5 text-left">
+                <span className="flex flex-col gap-0.5 text-left">
                   <strong>{thread.title ?? "Untitled thread"}</strong>
                   <span className="font-normal text-muted-foreground">
                     {summaryLabel(
@@ -186,9 +202,8 @@ const SnapshotSummary = ({
         <Card>
           <CardHeader>
             <CardTitle>Artifacts</CardTitle>
-            <CardDescription>Durable outputs created by agent work.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
+          <CardContent className="flex flex-col gap-2">
             {snapshot.artifacts.every((artifact) => artifact.kind !== "agent-output") ? (
               <p className="py-3 text-sm text-muted-foreground">No artifacts yet.</p>
             ) : null}
@@ -204,7 +219,7 @@ const SnapshotSummary = ({
                   params={{ artifactId: artifact.id }}
                   to="/workspace/artifacts/$artifactId"
                 >
-                  <span className="grid gap-0.5 text-left">
+                  <span className="flex flex-col gap-0.5 text-left">
                     <strong>{artifact.name}</strong>
                     <span className="font-normal text-muted-foreground">{artifact.kind}</span>
                   </span>
@@ -215,13 +230,13 @@ const SnapshotSummary = ({
         <Card>
           <CardHeader>
             <CardTitle>Notes</CardTitle>
-            <CardDescription>OpenEditor documents stored by Glass Cloud.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2">
-            <form className="grid gap-2" onSubmit={(event) => void submitNote(event)}>
+          <CardContent className="flex flex-col gap-2">
+            <form className="flex flex-col gap-2" onSubmit={(event) => void submitNote(event)}>
+              <Label htmlFor="note-project">Project</Label>
               <NativeSelect
-                aria-label="Note project"
                 disabled={creating || snapshot.projects.length === 0}
+                id="note-project"
                 onChange={(event) => setNoteProjectId(event.target.value as ProjectId)}
                 value={noteProjectId}
               >
@@ -255,27 +270,25 @@ const SnapshotSummary = ({
                 </Alert>
               )}
             </form>
-            {snapshot.artifacts.every((artifact) => artifact.kind !== "note") ? (
+            {visibleNotes.length === 0 ? (
               <p className="py-3 text-sm text-muted-foreground">No notes yet.</p>
             ) : null}
-            {snapshot.artifacts
-              .filter((artifact) => artifact.kind === "note")
-              .map((note) => (
-                <Link
-                  className={cn(
-                    buttonVariants({ variant: "ghost" }),
-                    "h-auto justify-start px-3 py-2",
-                  )}
-                  key={note.id}
-                  params={{ noteId: note.id }}
-                  to="/workspace/notes/$noteId"
-                >
-                  <span className="grid gap-0.5 text-left">
-                    <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
-                    <span className="font-normal text-muted-foreground">Open note</span>
-                  </span>
-                </Link>
-              ))}
+            {visibleNotes.map((note) => (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-auto justify-start px-3 py-2",
+                )}
+                key={note.id}
+                params={{ noteId: note.id }}
+                to="/workspace/notes/$noteId"
+              >
+                <span className="flex flex-col gap-0.5 text-left">
+                  <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
+                  <span className="font-normal text-muted-foreground">Open note</span>
+                </span>
+              </Link>
+            ))}
           </CardContent>
         </Card>
       </div>
@@ -371,52 +384,22 @@ export const ProductRouteCoordinator = () => {
 export const AuthProductScreen = () => {
   const { refresh, view } = useProductCloud();
   if (view.status === "checking-session") {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Spinner />
-        Checking the Glass Cloud session…
-      </div>
-    );
+    return <CenteredLoadingState label="Checking the Glass Cloud session…" />;
   }
   if (view.status === "signed-out") return <AuthenticationScreen onSignedIn={refresh} />;
   return <ErrorState />;
 };
 
-export const OrganizationsProductScreen = () => {
-  const { bootstrapOrganization, organizationId, selectOrganization, view } = useProductCloud();
-  if (!("userId" in view)) return <ErrorState />;
-  return (
-    <>
-      <OrganizationDirectory
-        activeOrganizationId={organizationId}
-        onBootstrap={bootstrapOrganization}
-        onSelect={selectOrganization}
-        userId={view.userId}
-      />
-      <ErrorState />
-      <OutboxAttention />
-    </>
-  );
-};
-
 export const WorkspaceProductLayout = () => {
-  const { organizationId, signOut, view } = useProductCloud();
+  const { signOut, view } = useProductCloud();
   const [error, setError] = useState<string | null>(null);
   if (view.status === "checking-session") {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center gap-2 text-sm text-muted-foreground">
-        <Spinner />
-        Opening your workspace…
-      </div>
-    );
+    return <CenteredLoadingState label="Opening your workspace…" />;
   }
-  if (!("userId" in view) || organizationId === null) return null;
+  if (!("userId" in view)) return null;
   return (
     <>
       <nav className="flex items-center justify-end gap-2 py-3">
-        <Link className={buttonVariants({ variant: "ghost", size: "sm" })} to="/organizations">
-          Organizations
-        </Link>
         <Button
           onClick={() => {
             setError(null);
@@ -444,10 +427,25 @@ export const WorkspaceProductLayout = () => {
 };
 
 export const WorkspaceProductScreen = () => {
-  const { createNote, createProject, organizationId, snapshot } = useProductCloud();
+  const {
+    bootstrapOrganization,
+    createNote,
+    createProject,
+    organizationId,
+    selectOrganization,
+    snapshot,
+    view,
+  } = useProductCloud();
   const navigate = useNavigate();
+  if (!("userId" in view)) return null;
   return (
     <>
+      <OrganizationDirectory
+        activeOrganizationId={organizationId}
+        onBootstrap={bootstrapOrganization}
+        onSelect={selectOrganization}
+        userId={view.userId}
+      />
       {organizationId === null ? null : (
         <EnvironmentPanel organizationId={organizationId} projects={snapshot?.projects ?? []} />
       )}

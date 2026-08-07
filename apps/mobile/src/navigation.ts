@@ -1,4 +1,4 @@
-export type MobileRouteSet = "auth" | "bootstrap" | "organizations" | "product";
+export type MobileRouteSet = "auth" | "bootstrap" | "product";
 
 export const resolveMobileRouteSet = ({
   authenticated,
@@ -18,6 +18,6 @@ export const resolveMobileRouteSet = ({
 }>): MobileRouteSet => {
   if (phase === "checking-session" || phase === "configuration-required") return "bootstrap";
   if (!authenticated) return phase === "offline" ? "bootstrap" : "auth";
-  if (phase === "organization-selection" || !organizationSelected) return "organizations";
+  void organizationSelected;
   return "product";
 };

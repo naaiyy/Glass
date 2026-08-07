@@ -5,7 +5,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { signInWithGitHub } from "./auth-client.ts";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 
 export const AuthenticationScreen = ({ onSignedIn }: { onSignedIn: () => void }) => {
   const [pending, setPending] = useState(false);
@@ -39,25 +38,14 @@ export const AuthenticationScreen = ({ onSignedIn }: { onSignedIn: () => void })
   };
 
   return (
-    <Card
-      className="mx-auto mt-[clamp(4rem,14vh,9rem)] w-full max-w-sm"
+    <section
+      className="-mb-16 flex min-h-dvh items-center justify-center"
       aria-labelledby="auth-title"
     >
-      <CardHeader className="gap-2">
-        <div
-          className="grid size-9 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
-          aria-hidden="true"
-        >
-          G
-        </div>
-        <CardTitle className="text-xl" id="auth-title">
+      <div className="grid w-full max-w-sm gap-3">
+        <h1 className="text-xl font-semibold tracking-tight" id="auth-title">
           Welcome to Glass
-        </CardTitle>
-        <CardDescription>
-          Sign in to continue to your organizations and cloud workspace.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
+        </h1>
         <Button className="w-full" disabled={pending} onClick={begin} size="lg" type="button">
           <HugeiconsIcon icon={GithubIcon} data-icon="inline-start" strokeWidth={2} />
           {pending ? "Opening GitHub…" : "Continue with GitHub"}
@@ -67,7 +55,7 @@ export const AuthenticationScreen = ({ onSignedIn }: { onSignedIn: () => void })
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 };

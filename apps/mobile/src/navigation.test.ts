@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { resolveMobileRouteSet } from "./navigation.ts";
 
 describe("mobile route authority", () => {
-  it("does not install protected routes without authenticated organization scope", () => {
+  it("keeps signed-out users out and organization selection on the product workspace", () => {
     expect(
       resolveMobileRouteSet({
         authenticated: false,
@@ -17,17 +17,17 @@ describe("mobile route authority", () => {
         organizationSelected: false,
         phase: "organization-selection",
       }),
-    ).toBe("organizations");
+    ).toBe("product");
   });
 
-  it("keeps organization selection authoritative when an attention scope remains", () => {
+  it("keeps organization selection inside the product route set", () => {
     expect(
       resolveMobileRouteSet({
         authenticated: true,
         organizationSelected: true,
         phase: "organization-selection",
       }),
-    ).toBe("organizations");
+    ).toBe("product");
   });
 
   it("installs product routes for live and cached offline organization state", () => {
