@@ -30,7 +30,7 @@ export const RootNavigator = () => {
         screenOptions={{
           contentStyle: styles.navigation,
           headerStyle: styles.navigation,
-          headerTintColor: "#eaf0ed",
+          headerTintColor: "#fafafa",
         }}
       >
         {routeSet === "bootstrap" ? (

@@ -26,11 +26,9 @@ type ConnectedScope = Readonly<{
 
 export const EnvironmentPanel = ({
   organizationId,
-  onConnectionStatus,
   projects,
 }: {
   organizationId: OrganizationId;
-  onConnectionStatus: (status: "connecting" | "not-configured" | "online") => void;
   projects: readonly Readonly<{ id: ProjectId; name: string }>[];
 }) => {
   const [environments, setEnvironments] = useState<readonly ExecutionEnvironment[]>([]);
@@ -262,18 +260,15 @@ export const EnvironmentPanel = ({
           if (status.status === "online") {
             connectionOnline.current = true;
             setExecutionOnline(true);
-            onConnectionStatus("online");
           } else if (status.status === "connecting" || status.status === "reconnecting") {
             connectionOnline.current = false;
             setExecutionOnline(false);
-            onConnectionStatus("connecting");
             if (status.status === "reconnecting") {
               setMessage("Execution is reconnecting. Product access remains available.");
             }
           } else if (status.status === "stopped") {
             connectionOnline.current = false;
             setExecutionOnline(false);
-            onConnectionStatus("not-configured");
           }
         },
       });

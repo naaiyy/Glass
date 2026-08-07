@@ -1,5 +1,4 @@
 import { electronClient } from "@better-auth/electron/client";
-import { storage } from "@better-auth/electron/storage";
 import type { DesktopProductRequest } from "@glass/contracts/architecture";
 import type { BetterAuthClientOptions } from "better-auth";
 import { createAuthClient } from "better-auth/client";
@@ -7,6 +6,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
 import glassCloudConfig from "../../../config/glass-cloud.json" with { type: "json" };
+import { createDesktopAuthStorage } from "./auth-storage.ts";
 import { setupDesktopAuthMain, type DesktopAuthMainClient } from "./auth-main.ts";
 
 const desktopDirectory = __dirname;
@@ -39,7 +39,7 @@ const electronAuthPlugin = electronClient({
   clientID: "glass-desktop",
   protocol: { scheme: "dev.glass.desktop" },
   signInURL: `${productCloudOrigin}/`,
-  storage: storage(),
+  storage: createDesktopAuthStorage(),
 });
 
 // The integration's runtime and Better Auth versions are pinned together. Their published

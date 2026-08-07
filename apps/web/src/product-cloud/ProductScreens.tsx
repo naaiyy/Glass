@@ -5,6 +5,13 @@ import type { ProductSnapshot } from "@glass/contracts/sync";
 import { Link, Outlet, useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { Button, buttonVariants } from "~/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
+import { Spinner } from "~/components/ui/spinner";
+import { cn } from "~/lib/utils";
 import { AuthenticationScreen } from "../AuthenticationScreen.tsx";
 import { EnvironmentPanel } from "./EnvironmentPanel.tsx";
 import { OrganizationDirectory } from "./OrganizationDirectory.tsx";
@@ -81,135 +88,196 @@ const SnapshotSummary = ({
   };
 
   return (
-    <section className="product-summary" aria-label="Cloud product snapshot">
-      <header>
-        <div>
-          <p className="section-label">Organization</p>
-          <h2>{snapshot.organization.name}</h2>
-        </div>
-      </header>
-
-      <div className="entity-columns">
-        <section>
-          <h3>Projects</h3>
-          <form className="note-create-form" onSubmit={(event) => void submitProject(event)}>
-            <input
-              aria-label="Project name"
-              disabled={creatingProject}
-              maxLength={240}
-              onChange={(event) => setProjectName(event.target.value)}
-              placeholder="New project name"
-              value={projectName}
-            />
-            <input
-              aria-label="Project description"
-              disabled={creatingProject}
-              maxLength={4000}
-              onChange={(event) => setProjectDescription(event.target.value)}
-              placeholder="Description (optional)"
-              value={projectDescription}
-            />
-            <button disabled={creatingProject} type="submit">
-              {creatingProject ? "Creating…" : "Create project"}
-            </button>
-          </form>
-          {snapshot.projects.length === 0 ? <p className="empty-copy">No projects yet.</p> : null}
-          {snapshot.projects.map((project) => (
-            <Link
-              className="entity-card note-card"
-              key={project.id}
-              params={{ projectId: project.id }}
-              to="/workspace/projects/$projectId"
-            >
-              <strong>{project.name}</strong>
-              <span>{project.description ?? "No description"}</span>
-            </Link>
-          ))}
-        </section>
-        <section>
-          <h3>Threads</h3>
-          {snapshot.threads.length === 0 ? <p className="empty-copy">No threads yet.</p> : null}
-          {snapshot.threads.map((thread) => (
-            <Link
-              className="entity-card note-card"
-              key={thread.id}
-              params={{ threadId: thread.id }}
-              to="/workspace/threads/$threadId"
-            >
-              <strong>{thread.title ?? "Untitled thread"}</strong>
-              <span>
-                {summaryLabel(
-                  snapshot.messages.filter((message) => message.threadId === thread.id).length,
-                  "message",
+    <section className="mt-8 grid gap-4" aria-label="Cloud product snapshot">
+      <div>
+        <p className="text-xs font-medium text-muted-foreground">Organization</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">{snapshot.organization.name}</h1>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Projects</CardTitle>
+            <CardDescription>Cloud-owned spaces for related work.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <form className="grid gap-2" onSubmit={(event) => void submitProject(event)}>
+              <Input
+                aria-label="Project name"
+                disabled={creatingProject}
+                maxLength={240}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder="New project name"
+                value={projectName}
+              />
+              <Input
+                aria-label="Project description"
+                disabled={creatingProject}
+                maxLength={4000}
+                onChange={(event) => setProjectDescription(event.target.value)}
+                placeholder="Description (optional)"
+                value={projectDescription}
+              />
+              <Button disabled={creatingProject} type="submit">
+                {creatingProject ? (
+                  <>
+                    <Spinner />
+                    Creating…
+                  </>
+                ) : (
+                  "Create project"
                 )}
-              </span>
-            </Link>
-          ))}
-        </section>
-        <section>
-          <h3>Artifacts</h3>
-          {snapshot.artifacts.every((artifact) => artifact.kind !== "agent-output") ? (
-            <p className="empty-copy">No artifacts yet.</p>
-          ) : null}
-          {snapshot.artifacts
-            .filter((artifact) => artifact.kind === "agent-output")
-            .map((artifact) => (
+              </Button>
+            </form>
+            {snapshot.projects.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No projects yet.</p>
+            ) : null}
+            {snapshot.projects.map((project) => (
               <Link
-                className="entity-card note-card"
-                key={artifact.id}
-                params={{ artifactId: artifact.id }}
-                to="/workspace/artifacts/$artifactId"
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-auto justify-start px-3 py-2",
+                )}
+                key={project.id}
+                params={{ projectId: project.id }}
+                to="/workspace/projects/$projectId"
               >
-                <strong>{artifact.name}</strong>
-                <span>{artifact.kind}</span>
+                <span className="grid min-w-0 gap-0.5 text-left">
+                  <strong className="truncate">{project.name}</strong>
+                  <span className="truncate font-normal text-muted-foreground">
+                    {project.description ?? "No description"}
+                  </span>
+                </span>
               </Link>
             ))}
-        </section>
-        <section>
-          <h3>Notes</h3>
-          <form className="note-create-form" onSubmit={(event) => void submitNote(event)}>
-            <select
-              aria-label="Note project"
-              disabled={creating || snapshot.projects.length === 0}
-              onChange={(event) => setNoteProjectId(event.target.value as ProjectId)}
-              value={noteProjectId}
-            >
-              {snapshot.projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Threads</CardTitle>
+            <CardDescription>Durable conversations in this organization.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {snapshot.threads.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No threads yet.</p>
+            ) : null}
+            {snapshot.threads.map((thread) => (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-auto justify-start px-3 py-2",
+                )}
+                key={thread.id}
+                params={{ threadId: thread.id }}
+                to="/workspace/threads/$threadId"
+              >
+                <span className="grid gap-0.5 text-left">
+                  <strong>{thread.title ?? "Untitled thread"}</strong>
+                  <span className="font-normal text-muted-foreground">
+                    {summaryLabel(
+                      snapshot.messages.filter((message) => message.threadId === thread.id).length,
+                      "message",
+                    )}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Artifacts</CardTitle>
+            <CardDescription>Durable outputs created by agent work.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            {snapshot.artifacts.every((artifact) => artifact.kind !== "agent-output") ? (
+              <p className="py-3 text-sm text-muted-foreground">No artifacts yet.</p>
+            ) : null}
+            {snapshot.artifacts
+              .filter((artifact) => artifact.kind === "agent-output")
+              .map((artifact) => (
+                <Link
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    "h-auto justify-start px-3 py-2",
+                  )}
+                  key={artifact.id}
+                  params={{ artifactId: artifact.id }}
+                  to="/workspace/artifacts/$artifactId"
+                >
+                  <span className="grid gap-0.5 text-left">
+                    <strong>{artifact.name}</strong>
+                    <span className="font-normal text-muted-foreground">{artifact.kind}</span>
+                  </span>
+                </Link>
               ))}
-            </select>
-            <input
-              aria-label="Note name"
-              disabled={creating || snapshot.projects.length === 0}
-              maxLength={240}
-              onChange={(event) => setNoteName(event.target.value)}
-              placeholder="New note name"
-              value={noteName}
-            />
-            <button disabled={creating || snapshot.projects.length === 0} type="submit">
-              {creating ? "Creating…" : "Create note"}
-            </button>
-            {createError === null ? null : <p className="field-error">{createError}</p>}
-          </form>
-          {snapshot.artifacts.every((artifact) => artifact.kind !== "note") ? (
-            <p className="empty-copy">No notes yet.</p>
-          ) : null}
-          {snapshot.artifacts
-            .filter((artifact) => artifact.kind === "note")
-            .map((note) => (
-              <Link
-                className="entity-card note-card"
-                key={note.id}
-                params={{ noteId: note.id }}
-                to="/workspace/notes/$noteId"
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+            <CardDescription>OpenEditor documents stored by Glass Cloud.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <form className="grid gap-2" onSubmit={(event) => void submitNote(event)}>
+              <NativeSelect
+                aria-label="Note project"
+                disabled={creating || snapshot.projects.length === 0}
+                onChange={(event) => setNoteProjectId(event.target.value as ProjectId)}
+                value={noteProjectId}
               >
-                <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
-                <span>Open note</span>
-              </Link>
-            ))}
-        </section>
+                {snapshot.projects.map((project) => (
+                  <NativeSelectOption key={project.id} value={project.id}>
+                    {project.name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <Input
+                aria-label="Note name"
+                disabled={creating || snapshot.projects.length === 0}
+                maxLength={240}
+                onChange={(event) => setNoteName(event.target.value)}
+                placeholder="New note name"
+                value={noteName}
+              />
+              <Button disabled={creating || snapshot.projects.length === 0} type="submit">
+                {creating ? (
+                  <>
+                    <Spinner />
+                    Creating…
+                  </>
+                ) : (
+                  "Create note"
+                )}
+              </Button>
+              {createError === null ? null : (
+                <Alert variant="destructive">
+                  <AlertDescription>{createError}</AlertDescription>
+                </Alert>
+              )}
+            </form>
+            {snapshot.artifacts.every((artifact) => artifact.kind !== "note") ? (
+              <p className="py-3 text-sm text-muted-foreground">No notes yet.</p>
+            ) : null}
+            {snapshot.artifacts
+              .filter((artifact) => artifact.kind === "note")
+              .map((note) => (
+                <Link
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    "h-auto justify-start px-3 py-2",
+                  )}
+                  key={note.id}
+                  params={{ noteId: note.id }}
+                  to="/workspace/notes/$noteId"
+                >
+                  <span className="grid gap-0.5 text-left">
+                    <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
+                    <span className="font-normal text-muted-foreground">Open note</span>
+                  </span>
+                </Link>
+              ))}
+          </CardContent>
+        </Card>
       </div>
     </section>
   );
@@ -219,15 +287,18 @@ const ErrorState = () => {
   const { refresh, snapshot, view } = useProductCloud();
   if (!("error" in view) || view.error === null) return null;
   return (
-    <section className="offline-banner" role="status">
-      <p>{view.error}</p>
-      {snapshot === null ? null : <p>Showing the last validated device cache.</p>}
+    <Alert className="mt-4" variant="destructive" role="status">
+      <AlertTitle>Glass Cloud is unavailable</AlertTitle>
+      <AlertDescription>
+        {view.error}
+        {snapshot === null ? null : " Showing the last validated device cache."}
+      </AlertDescription>
       {view.status === "offline" ? (
-        <button className="retry-button" onClick={refresh} type="button">
+        <Button className="mt-3" onClick={refresh} size="sm" variant="outline" type="button">
           Reconnect
-        </button>
+        </Button>
       ) : null}
-    </section>
+    </Alert>
   );
 };
 
@@ -300,7 +371,12 @@ export const ProductRouteCoordinator = () => {
 export const AuthProductScreen = () => {
   const { refresh, view } = useProductCloud();
   if (view.status === "checking-session") {
-    return <p className="state-panel">Checking the Glass Cloud session…</p>;
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Spinner />
+        Checking the Glass Cloud session…
+      </div>
+    );
   }
   if (view.status === "signed-out") return <AuthenticationScreen onSignedIn={refresh} />;
   return <ErrorState />;
@@ -327,25 +403,34 @@ export const WorkspaceProductLayout = () => {
   const { organizationId, signOut, view } = useProductCloud();
   const [error, setError] = useState<string | null>(null);
   if (view.status === "checking-session") {
-    return <p className="state-panel">Opening your workspace…</p>;
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Spinner />
+        Opening your workspace…
+      </div>
+    );
   }
   if (!("userId" in view) || organizationId === null) return null;
   return (
     <>
-      <div className="session-actions">
-        <Link to="/organizations">Organizations</Link>
-        <button
+      <nav className="flex items-center justify-end gap-2 py-3">
+        <Link className={buttonVariants({ variant: "ghost", size: "sm" })} to="/organizations">
+          Organizations
+        </Link>
+        <Button
           onClick={() => {
             setError(null);
             void signOut().catch((cause: unknown) =>
               setError(cause instanceof Error ? cause.message : "Glass Cloud sign-out failed."),
             );
           }}
+          size="sm"
           type="button"
+          variant="ghost"
         >
           Sign out
-        </button>
-      </div>
+        </Button>
+      </nav>
       {error === null ? null : (
         <p className="field-error" role="alert">
           {error}
@@ -359,29 +444,12 @@ export const WorkspaceProductLayout = () => {
 };
 
 export const WorkspaceProductScreen = () => {
-  const { createNote, createProject, organizationId, snapshot, view } = useProductCloud();
-  const [executionStatus, setExecutionStatus] = useState<
-    "connecting" | "not-configured" | "online"
-  >("not-configured");
+  const { createNote, createProject, organizationId, snapshot } = useProductCloud();
   const navigate = useNavigate();
   return (
     <>
-      <section className="connection-card" aria-label="Connection boundaries">
-        <div>
-          <span>Product connection</span>
-          <strong>{view.status}</strong>
-        </div>
-        <div>
-          <span>Execution connection</span>
-          <strong>{executionStatus}</strong>
-        </div>
-      </section>
       {organizationId === null ? null : (
-        <EnvironmentPanel
-          organizationId={organizationId}
-          onConnectionStatus={setExecutionStatus}
-          projects={snapshot?.projects ?? []}
-        />
+        <EnvironmentPanel organizationId={organizationId} projects={snapshot?.projects ?? []} />
       )}
       {snapshot === null ? null : (
         <SnapshotSummary
@@ -403,11 +471,17 @@ const decodeRouteId = <Id extends string>(value: string, path: string): Id | nul
 };
 
 const MissingEntity = ({ label }: Readonly<{ label: string }>) => (
-  <section className="state-panel">
-    <h2>{label} unavailable</h2>
-    <p>The requested item is not in the current organization.</p>
-    <Link to="/workspace">Back to workspace</Link>
-  </section>
+  <Card className="mt-8">
+    <CardHeader>
+      <CardTitle>{label} unavailable</CardTitle>
+      <CardDescription>The requested item is not in the current organization.</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <Link className={buttonVariants({ variant: "outline" })} to="/workspace">
+        Back to workspace
+      </Link>
+    </CardContent>
+  </Card>
 );
 
 export const NoteProductScreen = () => {
@@ -420,7 +494,14 @@ export const NoteProductScreen = () => {
   );
   if (note === undefined) return <MissingEntity label="Note" />;
   return (
-    <Suspense fallback={<p className="state-panel">Opening editor…</p>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[50vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Spinner />
+          Opening editor…
+        </div>
+      }
+    >
       <NoteEditor note={note} onClose={() => void navigate({ to: "/workspace" })} />
     </Suspense>
   );
@@ -433,10 +514,12 @@ export const ProjectProductScreen = () => {
   const project = snapshot?.projects.find((candidate) => candidate.id === projectId);
   if (project === undefined) return <MissingEntity label="Project" />;
   return (
-    <section className="state-panel">
-      <h2>{project.name}</h2>
-      <p>{project.description ?? "No description"}</p>
-    </section>
+    <Card className="mt-8">
+      <CardHeader>
+        <CardTitle>{project.name}</CardTitle>
+        <CardDescription>{project.description ?? "No description"}</CardDescription>
+      </CardHeader>
+    </Card>
   );
 };
 
@@ -447,15 +530,17 @@ export const ThreadProductScreen = () => {
   const thread = snapshot?.threads.find((candidate) => candidate.id === threadId);
   if (thread === undefined) return <MissingEntity label="Thread" />;
   return (
-    <section className="state-panel">
-      <h2>{thread.title ?? "Untitled thread"}</h2>
-      <p>
-        {summaryLabel(
-          snapshot?.messages.filter((message) => message.threadId === thread.id).length ?? 0,
-          "message",
-        )}
-      </p>
-    </section>
+    <Card className="mt-8">
+      <CardHeader>
+        <CardTitle>{thread.title ?? "Untitled thread"}</CardTitle>
+        <CardDescription>
+          {summaryLabel(
+            snapshot?.messages.filter((message) => message.threadId === thread.id).length ?? 0,
+            "message",
+          )}
+        </CardDescription>
+      </CardHeader>
+    </Card>
   );
 };
 
@@ -468,9 +553,11 @@ export const ArtifactProductScreen = () => {
   );
   if (artifact === undefined) return <MissingEntity label="Artifact" />;
   return (
-    <section className="state-panel">
-      <h2>{artifact.name}</h2>
-      <p>{artifact.kind}</p>
-    </section>
+    <Card className="mt-8">
+      <CardHeader>
+        <CardTitle>{artifact.name}</CardTitle>
+        <CardDescription>{artifact.kind}</CardDescription>
+      </CardHeader>
+    </Card>
   );
 };

@@ -31,7 +31,10 @@
   },
   "dependencies": {
     "@glass/contracts": "workspace:*",
-    "@glass/domain": "workspace:*"
+    "@glass/domain": "workspace:*",
+    "@noble/curves": "catalog:",
+    "@noble/hashes": "catalog:",
+    "jose": "catalog:"
   },
   "devDependencies": {
     "vite-plus": "catalog:"

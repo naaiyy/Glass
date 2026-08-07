@@ -29,6 +29,9 @@ import type {
   OrganizationId,
   UserId,
 } from "@glass/contracts/ids";
+import { ed25519 } from "@noble/curves/ed25519";
+import { sha256 } from "@noble/hashes/sha256";
+import { base64url } from "jose";
 import type { Client, QueryResultRow } from "pg";
 
 export type EnvironmentFailureCode = "conflict" | "forbidden" | "invalid" | "not-found";
@@ -113,31 +116,14 @@ const encoder = new TextEncoder();
 const asIso = (value: Date | string): IsoDateTime =>
   (value instanceof Date ? value : new Date(value)).toISOString() as IsoDateTime;
 
-const base64Url = (bytes: Uint8Array): string => {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
-};
-
-const fromBase64Url = (value: string): Uint8Array => {
-  const padded = value
-    .replaceAll("-", "+")
-    .replaceAll("_", "/")
-    .padEnd(Math.ceil(value.length / 4) * 4, "=");
-  const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-};
-
 const randomToken = (bytes = 32): string => {
   const value = new Uint8Array(bytes);
   crypto.getRandomValues(value);
-  return base64Url(value);
+  return base64url.encode(value);
 };
 
-const digest = async (value: string): Promise<string> => {
-  const bytes = await crypto.subtle.digest("SHA-256", encoder.encode(value));
-  return base64Url(new Uint8Array(bytes));
-};
+const digest = async (value: string): Promise<string> =>
+  base64url.encode(sha256(encoder.encode(value)));
 
 const constantTimeEqual = (left: string, right: string): boolean => {
   const maximum = Math.max(left.length, right.length);
@@ -154,13 +140,11 @@ const verifyProof = async (
   signature: string,
 ): Promise<boolean> => {
   try {
-    const publicKeyBytes = Uint8Array.from(fromBase64Url(publicKey)).buffer;
-    const signatureBytes = Uint8Array.from(fromBase64Url(signature)).buffer;
-    const challengeBytes = Uint8Array.from(encoder.encode(challenge)).buffer;
-    const key = await crypto.subtle.importKey("raw", publicKeyBytes, { name: "Ed25519" }, false, [
-      "verify",
-    ]);
-    return await crypto.subtle.verify("Ed25519", key, signatureBytes, challengeBytes);
+    return ed25519.verify(
+      base64url.decode(signature),
+      encoder.encode(challenge),
+      base64url.decode(publicKey),
+    );
   } catch {
     return false;
   }

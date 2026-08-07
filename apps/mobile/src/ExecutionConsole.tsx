@@ -44,7 +44,7 @@ const Input = ({
       autoCorrect={false}
       multiline={multiline}
       onChangeText={onChangeText}
-      placeholderTextColor="#71817a"
+      placeholderTextColor="#71717a"
       style={[styles.input, multiline && styles.multiline]}
       value={value}
     />
@@ -227,30 +227,30 @@ export const MobileExecutionConsole = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#20332c",
-    borderColor: "#3a5b4d",
+    backgroundColor: "#27272a",
+    borderColor: "#52525b",
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
-  buttonText: { color: "#d8f4e7", fontSize: 12, fontWeight: "600" },
-  console: { borderColor: "#2b4439", borderRadius: 14, borderWidth: 1, gap: 10, padding: 12 },
+  buttonText: { color: "#fafafa", fontSize: 12, fontWeight: "600" },
+  console: { borderColor: "#3f3f46", borderRadius: 14, borderWidth: 1, gap: 10, padding: 12 },
   disabled: { opacity: 0.45 },
   field: { flex: 1, gap: 5 },
-  heading: { color: "#f2faf6", fontSize: 16, fontWeight: "700" },
-  help: { color: "#91a99f", fontSize: 12, lineHeight: 18 },
+  heading: { color: "#fafafa", fontSize: 16, fontWeight: "700" },
+  help: { color: "#a1a1aa", fontSize: 12, lineHeight: 18 },
   input: {
-    backgroundColor: "#111b17",
-    borderColor: "#314b40",
+    backgroundColor: "#18181b",
+    borderColor: "#52525b",
     borderRadius: 9,
     borderWidth: 1,
-    color: "#f2faf6",
+    color: "#fafafa",
     minWidth: 96,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
-  label: { color: "#a8c4b8", fontSize: 12, fontWeight: "600" },
+  label: { color: "#d4d4d8", fontSize: 12, fontWeight: "600" },
   multiline: { minHeight: 86, textAlignVertical: "top" },
   operationGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   row: { flexDirection: "row", gap: 8 },

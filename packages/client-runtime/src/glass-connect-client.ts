@@ -11,6 +11,8 @@ import {
   type TunnelNodeWelcome,
 } from "@glass/contracts/connect-tunnel";
 import type { ExecutionEnvironmentId } from "@glass/contracts/ids";
+import { ed25519 } from "@noble/curves/ed25519";
+import { base64url } from "jose";
 
 export type GlassConnectClientStatus =
   | Readonly<{ status: "idle" }>
@@ -52,30 +54,12 @@ export type GlassConnectClientOptions = Readonly<{
 const openReadyState = 1;
 export const maxActiveConnectCorrelations = 1_000;
 
-const base64UrlBytes = (value: string): ArrayBuffer => {
-  const padded = value
-    .replace(/-/gu, "+")
-    .replace(/_/gu, "/")
-    .padEnd(Math.ceil(value.length / 4) * 4, "=");
-  const decoded = atob(padded);
-  return Uint8Array.from(decoded, (character) => character.charCodeAt(0)).buffer as ArrayBuffer;
-};
-
 export const verifyTunnelNodeWelcome = async (
   welcome: TunnelNodeWelcome,
   publicKey: string,
 ): Promise<boolean> => {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    base64UrlBytes(publicKey),
-    { name: "Ed25519" },
-    false,
-    ["verify"],
-  );
-  return crypto.subtle.verify(
-    { name: "Ed25519" },
-    key,
-    base64UrlBytes(welcome.signature),
+  return ed25519.verify(
+    base64url.decode(welcome.signature),
     new TextEncoder().encode(
       tunnelWelcomeSigningPayload({
         type: welcome.type,
@@ -91,6 +75,7 @@ export const verifyTunnelNodeWelcome = async (
         ticketId: welcome.ticketId,
       }),
     ),
+    base64url.decode(publicKey),
   );
 };
 
@@ -157,10 +142,7 @@ export class GlassConnectClient {
     this.options.onStatus?.({ status: "connecting", attempt });
     try {
       const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
-      const nonce = btoa(String.fromCharCode(...nonceBytes))
-        .replace(/\+/gu, "-")
-        .replace(/\//gu, "_")
-        .replace(/=+$/gu, "");
+      const nonce = base64url.encode(nonceBytes);
       const ticket = await this.options.getTicket(nonce);
       if (this.stopped) return;
       if (Date.parse(ticket.expiresAt) <= (this.options.now ?? Date.now)()) {

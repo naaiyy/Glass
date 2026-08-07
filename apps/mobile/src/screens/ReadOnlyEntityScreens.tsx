@@ -6,7 +6,6 @@ import { decodeRouteId } from "../navigation/decode-route-id.ts";
 import type { RootStack } from "../navigation/routes.ts";
 import { useProductCloudState } from "../product-cloud/ProductCloudProvider.tsx";
 import { DetailLayout } from "../ui/primitives.tsx";
-import { styles } from "../ui/styles.ts";
 
 export const ThreadScreen = ({ route }: NativeStackScreenProps<RootStack, "Thread">) => {
   const snapshot = useProductCloudState().view.snapshot;
@@ -15,11 +14,13 @@ export const ThreadScreen = ({ route }: NativeStackScreenProps<RootStack, "Threa
   const messages = snapshot?.messages.filter((item) => item.threadId === threadId) ?? [];
   return (
     <DetailLayout title={thread?.title ?? "Thread"}>
-      <Text style={styles.muted}>{messages.length} message(s)</Text>
+      <Text className="text-sm text-muted-foreground">{messages.length} message(s)</Text>
       {messages.map((message) => (
-        <View key={message.id} style={styles.listCard}>
-          <Text style={styles.body}>{message.body}</Text>
-          <Text style={styles.muted}>Author {message.authorUserId.slice(0, 8)}</Text>
+        <View className="mt-2 rounded-xl border border-border bg-card p-4" key={message.id}>
+          <Text className="text-[15px] leading-6 text-card-foreground">{message.body}</Text>
+          <Text className="mt-1 text-sm text-muted-foreground">
+            Author {message.authorUserId.slice(0, 8)}
+          </Text>
         </View>
       ))}
     </DetailLayout>
@@ -32,8 +33,8 @@ export const ArtifactScreen = ({ route }: NativeStackScreenProps<RootStack, "Art
   const artifact = snapshot?.artifacts.find((item) => item.id === artifactId);
   return (
     <DetailLayout title={artifact?.name ?? "Artifact unavailable"}>
-      <Text style={styles.muted}>{artifact?.kind ?? "Unknown kind"}</Text>
-      <Text style={styles.body}>
+      <Text className="text-sm text-muted-foreground">{artifact?.kind ?? "Unknown kind"}</Text>
+      <Text className="mt-3 font-mono text-sm leading-5 text-foreground">
         {artifact === undefined || artifact.kind !== "agent-output"
           ? "This artifact is not in the validated projection."
           : JSON.stringify(artifact.body, null, 2)}

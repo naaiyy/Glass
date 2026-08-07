@@ -17,11 +17,15 @@
     "@glass/contracts": "workspace:*",
     "better-auth": "catalog:",
     "conf": "15.0.2",
-    "electron": "41.5.0"
+    "electron": "41.5.0",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "@glass/web": "workspace:*",
     "@types/node": "catalog:",
+    "electron-builder": "26.15.6",
+    "tailwindcss": "^4.0.0",
     "vite": "catalog:",
     "vite-plus": "catalog:"
   }
