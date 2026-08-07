@@ -13,8 +13,9 @@ owns child-process shutdown.
   product traffic to development Glass Cloud.
 - `vp run dev:desktop` starts the same live Vite renderer without opening a browser, then loads it
   through the Electron host and authenticated preload boundary.
-- `vp run dev:mobile` starts Expo with the development Glass Cloud origin. `dev:mobile:ios` selects
-  the native iOS entry.
+- `vp run dev:mobile` owns Metro with the development Glass Cloud origin. `dev:mobile:ios` also
+  builds, installs, and opens the native iOS app, then keeps Metro and Glass Connect alive after the
+  one-shot native launcher exits. Parallel worktrees select the next available Metro port.
 
 The workspace-level client `dev` scripts delegate to the same orchestrator. Their lower-level
 `start:vite`, `start:metro`, and `start:ios` tasks are orchestration building blocks, not complete
@@ -69,6 +70,15 @@ node apps/execution-node/dist/main.js workspace-add \
 - Execution availability remains separate from product availability; the launcher never invents an
   identity, credential, workspace, or local product store.
 
+## Native iOS lifecycle
+
+The checked-in `apps/mobile/ios` host is authoritative native source, not a disposable local build
+artifact. Xcode 27 requires UIKit's scene lifecycle. `AppDelegate` owns process-wide Expo and React
+Native factory initialization, while `SceneDelegate` owns the `UIWindow`, starts React Native for
+the connecting scene, forwards scene lifecycle events to Expo subscribers, and preserves cold-start
+URL and universal-link delivery. The scene manifest names that delegate explicitly. Regenerating the
+native project without preserving this boundary is not a supported development operation.
+
 ## Source map
 
 - Surface orchestrator: `scripts/dev-runner.mjs`
@@ -78,4 +88,6 @@ node apps/execution-node/dist/main.js workspace-add \
 - Development OAuth boundary: `apps/api/src/auth.ts`, `apps/api/src/env.ts`
 - Desktop host and preload: `apps/desktop/src/`
 - Mobile cloud configuration: `apps/mobile/src/cloud/`
+- Mobile iOS process and scene lifecycle: `apps/mobile/ios/Glass/AppDelegate.swift`,
+  `apps/mobile/ios/Glass/SceneDelegate.swift`, `apps/mobile/ios/Glass/Info.plist`
 - Execution identity and workspace registry: `apps/execution-node/src/`
