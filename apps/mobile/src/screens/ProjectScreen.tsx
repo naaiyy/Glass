@@ -2,14 +2,13 @@ import type { ProjectId } from "@glass/contracts/ids";
 import type { NoteArtifact } from "@glass/contracts/product";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { Text, TextInput } from "react-native";
+import { Text } from "react-native";
 
 import { errorMessage } from "../lib/errors.ts";
 import { decodeRouteId } from "../navigation/decode-route-id.ts";
 import type { RootStack } from "../navigation/routes.ts";
 import { useMobileCloud } from "../product-cloud/ProductCloudProvider.tsx";
-import { ActionButton, DetailLayout } from "../ui/primitives.tsx";
-import { styles } from "../ui/styles.ts";
+import { ActionButton, AppInput, DetailLayout } from "../ui/primitives.tsx";
 
 export const ProjectScreen = ({
   navigation,
@@ -25,7 +24,9 @@ export const ProjectScreen = ({
   if (snapshot === null || project === undefined)
     return (
       <DetailLayout title="Project unavailable">
-        <Text style={styles.body}>This project is not in the validated projection.</Text>
+        <Text className="text-[15px] leading-6 text-foreground">
+          This project is not in the validated projection.
+        </Text>
       </DetailLayout>
     );
   const threads = snapshot.threads.filter((item) => item.projectId === project.id);
@@ -34,8 +35,10 @@ export const ProjectScreen = ({
   const outputs = artifacts.filter((item) => item.kind === "agent-output");
   return (
     <DetailLayout title={project.name}>
-      <Text style={styles.body}>{project.description ?? "No description"}</Text>
-      <Text style={styles.sectionTitle}>Threads</Text>
+      <Text className="text-[15px] leading-6 text-muted-foreground">
+        {project.description ?? "No description"}
+      </Text>
+      <Text className="mt-6 text-lg font-semibold text-foreground">Threads</Text>
       {threads.map((item) => (
         <ActionButton
           key={item.id}
@@ -43,18 +46,18 @@ export const ProjectScreen = ({
           onPress={() => navigation.navigate("Thread", { threadId: item.id })}
         />
       ))}
-      <Text style={styles.sectionTitle}>Notes</Text>
-      <TextInput
+      <Text className="mt-6 text-lg font-semibold text-foreground">Notes</Text>
+      <AppInput
         autoCorrect={false}
         editable={!creatingNote}
         maxLength={240}
         onChangeText={setNoteName}
         placeholder="New note name"
-        placeholderTextColor="#71817a"
-        style={styles.input}
         value={noteName}
       />
-      {noteError === null ? null : <Text style={styles.error}>{noteError}</Text>}
+      {noteError === null ? null : (
+        <Text className="mt-2 text-sm text-destructive">{noteError}</Text>
+      )}
       <ActionButton
         disabled={creatingNote}
         label={creatingNote ? "Creating…" : "Create note"}
@@ -76,7 +79,9 @@ export const ProjectScreen = ({
             .finally(() => setCreatingNote(false));
         }}
       />
-      {notes.length === 0 ? <Text style={styles.muted}>No notes yet.</Text> : null}
+      {notes.length === 0 ? (
+        <Text className="mt-2 text-sm text-muted-foreground">No notes yet.</Text>
+      ) : null}
       {notes.map((item) => (
         <ActionButton
           key={item.id}
@@ -84,7 +89,7 @@ export const ProjectScreen = ({
           onPress={() => navigation.navigate("Note", { noteId: item.id })}
         />
       ))}
-      <Text style={styles.sectionTitle}>Artifacts</Text>
+      <Text className="mt-6 text-lg font-semibold text-foreground">Artifacts</Text>
       {outputs.map((item) => (
         <ActionButton
           key={item.id}

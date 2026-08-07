@@ -328,7 +328,7 @@ export const ExecutionCard = ({
             maxLength={11}
             onChangeText={setPairingCode}
             placeholder="ABCDE-FGHIJ"
-            placeholderTextColor="#71817a"
+            placeholderTextColor="#71717a"
             style={styles.input}
             value={pairingCode}
           />
@@ -361,7 +361,7 @@ export const ExecutionCard = ({
             maxLength={11}
             onChangeText={setRotationCode}
             placeholder="ABCDE-FGHIJ"
-            placeholderTextColor="#71817a"
+            placeholderTextColor="#71717a"
             style={styles.input}
             value={rotationCode}
           />

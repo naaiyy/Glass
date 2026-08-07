@@ -50,8 +50,10 @@ import {
   type PushCommandsRequest,
   type PushCommandsResponse,
 } from "@glass/contracts/sync";
-import type { Client, QueryResultRow } from "pg";
+import { sha256 } from "@noble/hashes/sha256";
+import { bytesToHex } from "@noble/hashes/utils";
 import { createDocument } from "@openeditor/core";
+import type { Client, QueryResultRow } from "pg";
 
 export type ProductFailureCode =
   | "conflict"
@@ -137,10 +139,8 @@ const parseJsonObject = (value: unknown): Record<string, unknown> => {
   return parsed as Record<string, unknown>;
 };
 
-const digest = async (value: string): Promise<string> => {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-};
+const digest = async (value: string): Promise<string> =>
+  bytesToHex(sha256(new TextEncoder().encode(value)));
 
 const operationHash = (mutation: ProductMutation): Promise<string> =>
   digest(

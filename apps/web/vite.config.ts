@@ -1,4 +1,6 @@
-import react from "@vitejs/plugin-react";
+import babel from "@rolldown/plugin-babel";
+import tailwindcss from "@tailwindcss/vite";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig } from "vite-plus";
 
@@ -25,9 +27,18 @@ const proxy =
 
 export default defineConfig({
   base: "./",
-  plugins: [tanstackRouter({ quoteStyle: "double", semicolons: true }), react()],
+  plugins: [
+    tanstackRouter({ quoteStyle: "double", semicolons: true }),
+    react(),
+    babel({
+      parserOpts: { plugins: ["typescript", "jsx"] },
+      presets: [reactCompilerPreset()],
+    }),
+    tailwindcss(),
+  ],
   resolve: {
     dedupe: ["react", "react-dom"],
+    tsconfigPaths: true,
   },
   server: {
     host: "127.0.0.1",

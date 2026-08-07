@@ -211,7 +211,7 @@ export const NoteScreen = ({ navigation, route }: NativeStackScreenProps<RootSta
       ) : null}
       {loadState.status === "loading" ? (
         <View style={styles.noteState}>
-          <ActivityIndicator color="#8de0bd" />
+          <ActivityIndicator />
           <Text style={styles.muted}>Loading note…</Text>
         </View>
       ) : null}

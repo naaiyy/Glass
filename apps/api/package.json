@@ -15,9 +15,12 @@
     "@better-auth/electron": "catalog:",
     "@better-auth/expo": "catalog:",
     "@glass/contracts": "workspace:*",
+    "@noble/curves": "catalog:",
+    "@noble/hashes": "catalog:",
     "@openeditor/core": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "0.45.2",
+    "jose": "catalog:",
     "pg": "8.22.0"
   },
   "devDependencies": {

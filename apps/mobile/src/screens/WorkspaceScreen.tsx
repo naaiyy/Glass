@@ -1,14 +1,13 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { ExecutionCard } from "../execution/ExecutionCard.tsx";
 import { errorMessage } from "../lib/errors.ts";
 import type { RootStack } from "../navigation/routes.ts";
 import { useMobileCloud } from "../product-cloud/ProductCloudProvider.tsx";
-import { ActionButton, StateCard } from "../ui/primitives.tsx";
-import { styles } from "../ui/styles.ts";
+import { ActionButton, AppInput, StateCard } from "../ui/primitives.tsx";
 
 export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack, "Workspace">) => {
   const { createProject, discardOutboxItem, outbox, retry, retryOutboxItem, signOut, view } =
@@ -27,14 +26,21 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
-      <Text style={styles.eyebrow}>GLASS · MOBILE</Text>
-      <Text style={styles.title}>Your cloud workspace</Text>
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerClassName="flex-grow px-5 pb-16 pt-6"
+    >
+      <Text className="text-xs font-semibold tracking-widest text-muted-foreground">
+        GLASS · MOBILE
+      </Text>
+      <Text className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
+        Your cloud workspace
+      </Text>
 
       {view.phase === "configuration-required" ? (
         <StateCard title="Cloud configuration required">
-          <Text style={styles.body}>{view.error}</Text>
-          <Text style={styles.muted}>
+          <Text className="text-[15px] leading-6 text-foreground">{view.error}</Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
             Set EXPO_PUBLIC_GLASS_API_URL to the Glass Cloud API origin.
           </Text>
         </StateCard>
@@ -42,14 +48,14 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
 
       {view.phase === "checking-session" ? (
         <StateCard title="Checking Glass Cloud session">
-          <ActivityIndicator color="#8de0bd" />
+          <ActivityIndicator />
         </StateCard>
       ) : null}
 
       {view.phase === "synchronizing" ? (
         <StateCard title="Synchronizing product state">
-          <ActivityIndicator color="#8de0bd" />
-          <Text style={styles.muted}>
+          <ActivityIndicator />
+          <Text className="text-sm leading-5 text-muted-foreground">
             Cached records remain distinct from cloud-confirmed updates.
           </Text>
         </StateCard>
@@ -57,8 +63,10 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
 
       {view.phase === "offline" ? (
         <StateCard title="Product connection offline">
-          <Text style={styles.body}>{view.error ?? "Glass Cloud is unreachable."}</Text>
-          <Text style={styles.muted}>
+          <Text className="text-[15px] leading-6 text-foreground">
+            {view.error ?? "Glass Cloud is unreachable."}
+          </Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
             {snapshot === null
               ? "No validated cache is available."
               : "Showing the last validated device cache."}
@@ -67,17 +75,11 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
         </StateCard>
       ) : null}
 
-      {view.phase === "live" ? (
-        <StateCard title="Product connection live">
-          <Text style={styles.muted}>Your workspace is up to date.</Text>
-        </StateCard>
-      ) : null}
-
       {attention.length > 0 ? (
         <StateCard title="Outbox needs attention">
           {attention.map((item) => (
-            <View key={item.mutation.commandId} style={styles.attentionItem}>
-              <Text style={styles.error}>
+            <View className="mt-3 border-t border-border pt-3" key={item.mutation.commandId}>
+              <Text className="text-sm text-destructive">
                 {item.mutation.operation.kind}: {item.attention?.message}
               </Text>
               {item.attention?.code === "forbidden" || item.attention?.code === "not-found" ? (
@@ -95,7 +97,9 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
         </StateCard>
       ) : pending > 0 ? (
         <StateCard title="Outbox pending">
-          <Text style={styles.body}>{pending} durable command(s) waiting for Glass Cloud.</Text>
+          <Text className="text-[15px] leading-6 text-foreground">
+            {pending} durable command(s) waiting for Glass Cloud.
+          </Text>
         </StateCard>
       ) : null}
 
@@ -110,25 +114,23 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
 
       {snapshot === null ? null : (
         <>
-          <View style={styles.summaryHeader}>
-            <Text style={styles.sectionTitle}>{snapshot.organization.name}</Text>
+          <View className="mt-7">
+            <Text className="text-xl font-semibold text-foreground">
+              {snapshot.organization.name}
+            </Text>
           </View>
-          <TextInput
+          <AppInput
             autoCorrect={false}
             maxLength={240}
             onChangeText={setProjectName}
             placeholder="New project name"
-            placeholderTextColor="#71817a"
-            style={styles.input}
             value={projectName}
           />
-          <TextInput
+          <AppInput
             autoCorrect={false}
             maxLength={4000}
             onChangeText={setProjectDescription}
             placeholder="Project description (optional)"
-            placeholderTextColor="#71817a"
-            style={styles.input}
             value={projectDescription}
           />
           <ActionButton
@@ -151,16 +153,18 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
                 .finally(() => setCreating(false));
             }}
           />
-          {inputError === null ? null : <Text style={styles.error}>{inputError}</Text>}
+          {inputError === null ? null : (
+            <Text className="mt-2 text-sm text-destructive">{inputError}</Text>
+          )}
           {snapshot.projects.map((project) => (
             <Pressable
               accessibilityRole="button"
               key={project.id}
               onPress={() => navigation.navigate("Project", { projectId: project.id })}
-              style={styles.listCard}
+              className="mt-2 rounded-xl border border-border bg-card p-4 active:bg-muted"
             >
-              <Text style={styles.listTitle}>{project.name}</Text>
-              <Text numberOfLines={2} style={styles.muted}>
+              <Text className="text-base font-semibold text-card-foreground">{project.name}</Text>
+              <Text className="mt-1 text-sm leading-5 text-muted-foreground" numberOfLines={2}>
                 {project.description ?? "No description"}
               </Text>
             </Pressable>

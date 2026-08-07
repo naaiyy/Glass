@@ -3,8 +3,10 @@ import type {
   ManagedTunnelConfiguration,
   PublishNodePresenceRequest,
 } from "@glass/contracts/connect-tunnel";
-import type { Client } from "pg";
 import type { IsoDateTime } from "@glass/contracts/ids";
+import { sha256 } from "@noble/hashes/sha256";
+import { base64url } from "jose";
+import type { Client } from "pg";
 import type { ConnectDispatchGrantClaims } from "./connect-tickets.ts";
 import type { ManagedTunnelControl } from "./env.ts";
 
@@ -23,16 +25,8 @@ export class TunnelServiceFailure extends Error {
 const hostnameFor = (environmentId: string, zoneName: string, stage: string): string =>
   `connect-${stage === "prod" ? "" : `${stage}-`}${environmentId.toLowerCase()}.${zoneName.toLowerCase()}`;
 
-const base64Url = (bytes: Uint8Array): string =>
-  btoa(String.fromCharCode(...bytes))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
-
 const ticketHash = async (ticket: string): Promise<string> =>
-  base64Url(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ticket))),
-  );
+  base64url.encode(sha256(new TextEncoder().encode(ticket)));
 
 export type TunnelTicketBinding = Readonly<{
   actorUserId: string;
@@ -137,7 +131,7 @@ export const createPostgresTunnelService = (
           input.organizationId,
           hostname,
           input.localOrigin,
-          base64Url(crypto.getRandomValues(new Uint8Array(16))),
+          base64url.encode(crypto.getRandomValues(new Uint8Array(16))),
         ],
       );
       const state = desired.rows[0];
@@ -303,7 +297,7 @@ export const createPostgresTunnelService = (
           "forbidden",
           "The managed execution environment is unavailable.",
         );
-      const ticket = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const ticket = base64url.encode(crypto.getRandomValues(new Uint8Array(32)));
       const ticketId = crypto.randomUUID();
       const sessionId = crypto.randomUUID();
       const channelId = crypto.randomUUID();
