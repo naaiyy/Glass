@@ -63,18 +63,6 @@ const unusedEnvironment: EnvironmentService = {
   exchangeCredential: async () => {
     throw new Error("must not be called");
   },
-  beginRotation: async () => {
-    throw new Error("must not be called");
-  },
-  approveRotation: async () => {
-    throw new Error("must not be called");
-  },
-  rotationStatus: async () => {
-    throw new Error("must not be called");
-  },
-  completeRotation: async () => {
-    throw new Error("must not be called");
-  },
   revoke: async () => {
     throw new Error("must not be called");
   },
@@ -111,8 +99,6 @@ describe("environment identity API routes", () => {
     "/v1/environment-pairings/complete",
     "/v1/environment-credentials/challenges",
     "/v1/environment-credentials/exchange",
-    "/v1/environment-rotations",
-    "/v1/environment-rotations/complete",
   ])("applies the trust-mutation limit to %s", async (pathname) => {
     const response = await handleRequest(
       new Request(`https://api.glass.test${pathname}`, { method: "POST", body: "{}" }),
@@ -199,24 +185,22 @@ describe("environment identity API routes", () => {
     expect(allocated).toBe(false);
   });
 
-  it.each(["/v1/environment-pairings/status", "/v1/environment-rotations/status"])(
-    "applies the independent trust-poll limit to %s",
-    async (pathname) => {
-      const response = await handleRequest(
-        new Request(`https://api.glass.test${pathname}`, { method: "POST", body: "{}" }),
-        {
-          ...bindings,
-          TRUST_MUTATION_RATE_LIMIT: { limit: async () => ({ success: true }) },
-          TRUST_POLL_RATE_LIMIT: { limit: async () => ({ success: false }) },
-        },
-        async () => {
-          throw new Error("must not construct runtime");
-        },
-      );
-      expect(response.status).toBe(429);
-      expect(response.headers.get("retry-after")).toBe("60");
-    },
-  );
+  it("applies the independent trust-poll limit", async () => {
+    const pathname = "/v1/environment-pairings/status";
+    const response = await handleRequest(
+      new Request(`https://api.glass.test${pathname}`, { method: "POST", body: "{}" }),
+      {
+        ...bindings,
+        TRUST_MUTATION_RATE_LIMIT: { limit: async () => ({ success: true }) },
+        TRUST_POLL_RATE_LIMIT: { limit: async () => ({ success: false }) },
+      },
+      async () => {
+        throw new Error("must not construct runtime");
+      },
+    );
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("60");
+  });
 
   it("rejects public trust mutations before runtime construction when their limit is exhausted", async () => {
     let runtimeConstructed = false;

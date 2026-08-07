@@ -35,9 +35,10 @@ export type GlassApiBindingInput = Partial<
 export type GlassAuthConfig = Readonly<{
   allowedHosts: readonly string[];
   connectionString: string;
+  protocol: "http" | "https";
   trustedOrigins: readonly string[];
   secret: string;
-  stage: "dev" | "prod" | "staging";
+  stage: "local" | "prod" | "staging";
   tunnelZoneName?: string;
   github: Readonly<{
     clientId: string;
@@ -52,7 +53,7 @@ export type GlassAuthConfigResult =
 const nonEmpty = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
-const glassCloudStages = ["prod", "staging", "dev"] as const;
+const glassCloudStages = ["prod", "staging", "local"] as const;
 const tunnelZonePattern = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/u;
 const packagedGlassTrustedOrigins = ["dev.glass.desktop://*", "dev.glass.mobile://*"] as const;
 
@@ -95,13 +96,19 @@ export const resolveGlassAuthConfig = (
   return {
     ok: true,
     config: {
-      allowedHosts: [`glasscloud-api-${stage}-*.workers.dev`],
+      allowedHosts:
+        stage === "local"
+          ? ["127.0.0.1:*", "localhost:*"]
+          : [`glasscloud-api-${stage}-*.workers.dev`],
       connectionString,
+      protocol: stage === "local" ? "http" : "https",
       trustedOrigins: [
         ...packagedGlassTrustedOrigins,
-        // Expo Go is a development container and returns to exp:// rather than the packaged app
-        // scheme. Never broaden staging or production callback trust for that development path.
-        ...(stage === "dev" ? (["exp://**", "http://127.0.0.1:*"] as const) : []),
+        // Expo Go is a local development container and returns to exp:// rather than the packaged
+        // app scheme. Never broaden staging or production callback trust for that path.
+        ...(stage === "local"
+          ? (["exp://**", "http://127.0.0.1:*", "http://localhost:*"] as const)
+          : []),
       ],
       secret,
       stage,

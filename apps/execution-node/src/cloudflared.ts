@@ -300,6 +300,7 @@ export class CloudflaredSupervisor {
     const delay = Math.min(30_000, 500 * 2 ** this.attempt);
     this.options.onFatal?.(error);
     this.options.onDisconnected?.(error);
+    if (this.stopped) return;
     this.retry = (this.options.schedule ?? setTimeout)(() => {
       this.retry = null;
       void this.launch();

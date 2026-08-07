@@ -15,32 +15,39 @@ const missing = () => {
 };
 
 describe("Glass development launcher", () => {
-  it("uses the deployed development cloud when no identity exists", () => {
+  it("uses the local API when no identity exists", () => {
     const config = resolveLaunchConfiguration({
       environment: {},
       fileExists: () => false,
       readFile: missing,
     });
-    assert.equal(
-      config.cloudOrigin,
-      "https://glasscloud-api-dev-iqwgnfdineqiceki.naaiyyyy.workers.dev",
-    );
+    assert.equal(config.cloudOrigin, "http://127.0.0.1:8787");
     assert.equal(config.executionConfigured, false);
-    assert.match(config.identityPath, /\.glass\/development\/execution-node\.json$/u);
+    assert.match(config.identityPath, /\.glass\/local\/main\/execution-node\.json$/u);
   });
 
-  it("uses the paired cloud and durable workspace registry", () => {
+  it("starts a paired environment before any workspace is registered", () => {
     const config = resolveLaunchConfiguration({
       environment: {
         GLASS_CLOUD_ORIGIN: "https://cloud.example",
         GLASS_NODE_IDENTITY_PATH: "/state/execution-node.json",
-        GLASS_EXECUTION_WORKSPACES: '[{"id":"11111111-1111-4111-8111-111111111111"}]',
       },
       fileExists: () => false,
-      readFile: () => JSON.stringify({ apiOrigin: "https://cloud.example" }),
+      readFile: () =>
+        JSON.stringify({ apiOrigin: "https://cloud.example", environment: { id: "environment" } }),
     });
     assert.equal(config.cloudOrigin, "https://cloud.example");
     assert.equal(config.executionConfigured, true);
+  });
+
+  it("does not connect a pairing identity before publication completes", () => {
+    const config = resolveLaunchConfiguration({
+      environment: { GLASS_CLOUD_ORIGIN: "https://cloud.example" },
+      readFile: () => JSON.stringify({ apiOrigin: "https://cloud.example", environment: null }),
+    });
+    assert.equal(config.hasIdentity, true);
+    assert.equal(config.hasPublishedIdentity, false);
+    assert.equal(config.executionConfigured, false);
   });
 
   it("does not let an unrelated execution identity block the product connection", () => {
@@ -50,7 +57,8 @@ describe("Glass development launcher", () => {
         GLASS_EXECUTION_WORKSPACES: "[]",
       },
       fileExists: () => false,
-      readFile: () => JSON.stringify({ apiOrigin: "https://cloud.example" }),
+      readFile: () =>
+        JSON.stringify({ apiOrigin: "https://cloud.example", environment: { id: "environment" } }),
     });
     assert.equal(config.cloudOrigin, "https://other.example");
     assert.equal(config.identityMatchesCloud, false);
@@ -63,14 +71,12 @@ describe("Glass development launcher", () => {
       fileExists: () => false,
       readFile: () => JSON.stringify({ apiOrigin: "https://production.example" }),
     });
-    assert.equal(
-      config.cloudOrigin,
-      "https://glasscloud-api-dev-iqwgnfdineqiceki.naaiyyyy.workers.dev",
-    );
+    assert.equal(config.cloudOrigin, "http://127.0.0.1:8787");
   });
 
   it("accepts only complete client surfaces", () => {
     assert.equal(parseDevelopmentSurface(undefined), "web");
+    assert.equal(parseDevelopmentSurface("api"), "api");
     assert.equal(parseDevelopmentSurface("desktop"), "desktop");
     assert.equal(parseDevelopmentSurface("mobile"), "mobile");
     assert.equal(parseDevelopmentSurface("mobile-ios"), "mobile-ios");

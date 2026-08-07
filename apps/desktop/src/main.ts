@@ -69,9 +69,7 @@ const allowedProductRequest = (input: unknown): input is DesktopProductRequest =
   const method = value.method;
   const pathname = new URL(value.path, productCloudOrigin).pathname;
   const environmentMethod =
-    pathname === "/v1/environment-pairings/approve" ||
-    pathname === "/v1/environment-rotations/approve" ||
-    pathname.endsWith("/connect-ticket")
+    pathname === "/v1/environment-pairings/approve" || pathname.endsWith("/connect-ticket")
       ? "POST"
       : pathname.endsWith("/workspace-catalog")
         ? "GET"

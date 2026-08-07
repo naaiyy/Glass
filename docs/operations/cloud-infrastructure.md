@@ -1,84 +1,53 @@
 # Cloud infrastructure
 
-This page is for Glass infrastructure and service operators.
+> Audience: Glass infrastructure and release operators.
 
-## Current status
+## Current topology
 
-`infra/cloud` is the typed Milestone 2 resource graph. Alchemy's default
-Cloudflare state store is deployed and encrypted. Production, staging, and
-development are deployed and reconcile through the same graph. Each stage has
-a successful apply, an idempotent second plan, and live service verification.
-Local build, test, and typecheck do not change provider state.
+`infra/cloud` declares two retained environments. Local development is not a third deployment: it
+uses Docker PostgreSQL and Wrangler's local Worker runtime.
 
-| Environment | Worker                                                         |
-| ----------- | -------------------------------------------------------------- |
-| production  | `glasscloud-api-prod-lcuxsmngpdigrgum.naaiyyyy.workers.dev`    |
-| staging     | `glasscloud-api-staging-rmhiqpuua7m4g6a3.naaiyyyy.workers.dev` |
-| development | `glasscloud-api-dev-iqwgnfdineqiceki.naaiyyyy.workers.dev`     |
+| Environment | Worker                                                         | Database ownership                                  |
+| ----------- | -------------------------------------------------------------- | --------------------------------------------------- |
+| production  | `glasscloud-api-prod-lcuxsmngpdigrgum.naaiyyyy.workers.dev`    | PlanetScale database and `main` branch              |
+| staging     | `glasscloud-api-staging-rmhiqpuua7m4g6a3.naaiyyyy.workers.dev` | isolated `PS_DEV` branch of the production database |
 
-The machine-readable public origins used by development launchers and packaged clients live in
-`config/glass-cloud.json`. This table explains operator ownership; it is not a separate source of
-runtime values.
+The deployed origins used by packaged clients live in `config/glass-cloud.json`. Local origins are
+derived by `scripts/local-runtime.mjs` and never enter that deployed-origin registry.
 
-## Ownership and stages
+## Resource graph
 
-The `GlassCloud` stack uses Alchemy's stage conventions:
+Both stages apply the same committed migration chain. Better Auth generates
+`apps/api/src/db/auth-schema.generated.ts`; `apps/api/src/db/schema.ts` composes it with Glass-owned
+tables before Drizzle generates migrations.
 
-| Stage       | Purpose               | PlanetScale ownership                            | Lifecycle  |
-| ----------- | --------------------- | ------------------------------------------------ | ---------- |
-| `prod`      | production            | owns the database and default `main` branch      | retained   |
-| `staging`   | shared pre-production | references the `prod` database and owns a branch | retained   |
-| `dev`       | shared development    | references the `prod` database and owns a branch | retained   |
-| `dev_$USER` | personal development  | references the `prod` database and owns a branch | disposable |
+Each stage owns:
 
-Alchemy generates physical names from the stack, stage, logical resource ID,
-and instance identity. Operators should use the generated provider names shown
-by the plan rather than maintaining a second naming scheme in documentation or
-deployment variables.
+- a data-only PlanetScale runtime role and Cloudflare Hyperdrive connection
+- a public API Worker and static web assets
+- a `CONNECT_AUTHORITY` Durable Object namespace
+- three Glass Connect rate-limit namespaces
+- a private tunnel-control Worker and service binding
+- independent Better Auth, GitHub OAuth, and Connect ticket secrets
 
-The production database is PlanetScale Postgres in `eu-central`, using
-`PS_5_AWS_X86` with two replicas. Non-production branches use `PS_DEV` with no
-replicas. All stages consume one committed migration chain. Better Auth generates
-`apps/api/src/db/auth-schema.generated.ts`; `apps/api/src/db/schema.ts` composes those tables with
-Glass-owned product tables before Drizzle generates migrations.
+Production runs in `eu-central` on `PS_5_AWS_X86` with two replicas. Staging uses `PS_DEV` with zero
+replicas. Hyperdrive query caching is disabled and its origin pool is capped at 20 connections per
+stage.
 
-Each stage owns a data-only runtime role and a Cloudflare Hyperdrive connection.
-Hyperdrive query caching is disabled and its PlanetScale origin pool is capped
-at 20 connections per environment.
-The Worker receives `HYPERDRIVE`, Alchemy's deployment-stage metadata,
-`BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, the Glass Connect authority,
-tunnel-control service, tunnel zone name, ticket secret, and separate Cloudflare Rate Limit
-bindings for environment-trust mutations, polling, and authenticated node control. The
-tunnel-control service receives
-least-privilege runtime access for remotely managed tunnels and DNS records in the selected active
-zone. The private service has one account token scoped only to Cloudflare Tunnel Write for tunnel
-creation, configuration, token retrieval, forced connection cleanup, and deletion through the
-provider API. DNS uses a separate zone-scoped token. These credentials add no product authority,
-never leave the private Worker, and are rotated and audited independently. Better
-Auth uses the stage to allow only the matching generated `workers.dev` host
-when resolving its OAuth base URL. The development stage additionally trusts the loopback origin
-used by the repository launcher and enables Better Auth's encrypted OAuth proxy return; staging and
-production do not accept that development origin. Alchemy resolves each secret through `Config.redacted`
-and uploads it as a Cloudflare `secret_text` binding. Authentication routes
-remain unavailable when any required binding or durable database connection is
-absent.
+Tunnel and DNS provider credentials remain confined to the private tunnel-control Worker. The
+Cloudflare Tunnel credential is account-scoped to Tunnel Write; DNS uses a separate zone-scoped
+token. Neither credential grants Glass product authority or enters the public API Worker.
 
 ## Reconciliation contract
 
-- Bootstrap `prod` before creating a branch stage because cross-stage
-  references must resolve an existing production database.
+- Bootstrap `prod` before staging because cross-stage references require the production database.
 - Generate and review Better Auth schema and Drizzle migrations before apply.
-- Review an explicit plan for `prod`, `staging`, and shared `dev`; personal
-  development may use Alchemy's default stage.
-- Do not make adoption a source default. A provider conflict requires a fresh
-  inventory and an explicit cleanup or adoption decision.
-- Keep provider credentials, role passwords, OAuth secrets, signing material,
-  and connection strings out of source, logs, URLs, outputs, fixtures, and
-  client bundles.
-- Verify Worker-to-Hyperdrive-to-PlanetScale connectivity and the complete
-  GitHub authentication lifecycle after every environment deployment.
-- Treat recovery, backup/restore, HA capacity, auditability, and secret rotation
-  as release gates rather than local-test claims.
+- Review an explicit plan for `prod` and `staging`; there is no generic or development deploy entry.
+- Keep provider credentials, database passwords, OAuth secrets, and signing material out of source,
+  logs, URLs, outputs, fixtures, and client bundles.
+- Verify Worker-to-Hyperdrive-to-PlanetScale connectivity and the complete authentication lifecycle
+  after every deployment.
+- Require an idempotent second plan after apply.
 
 ## Commands
 
@@ -86,43 +55,40 @@ absent.
 vp run --filter @glass/api auth:schema
 vp run --filter @glass/api db:migrations
 vp run --filter @glass/cloud-infrastructure plan:prod
+vp run --filter @glass/cloud-infrastructure deploy:prod
 vp run --filter @glass/cloud-infrastructure plan:staging
-vp run --filter @glass/cloud-infrastructure plan:dev
-vp run --filter @glass/cloud-infrastructure plan
+vp run --filter @glass/cloud-infrastructure deploy:staging
 ```
 
-After an apply, repeat the same plan and require no unexpected changes. Then
-inspect the migration table, runtime role grants, Hyperdrive configuration,
-Worker bindings, health endpoint, sign-in callback, session persistence, and
-sign-out behavior.
+After an apply, inspect the migration table, runtime grants, Hyperdrive configuration, Worker
+bindings, health endpoint, sign-in callback, session persistence, sign-out, publishing, direct
+execution, revocation, and provider cleanup.
 
-The manually dispatched `Glass Cloud` GitHub Actions workflow uses the
-`development`, `staging`, and `production` GitHub environments. Each environment
-holds its own Better Auth signing secret, provider credentials, and OAuth
-credentials. GitHub Actions reserves the `GITHUB_` prefix, so environment
-storage uses `OAUTH_GITHUB_CLIENT_ID` and `OAUTH_GITHUB_CLIENT_SECRET`; the
-workflow maps them to Better Auth's standard runtime names. Production
-protection rules remain a GitHub authorization boundary rather than application
-code.
+## GitHub Actions
 
-CI uses a one-year Cloudflare account-owned token. Glass Connect deployment additionally requires
-the permissions needed to create the Worker graph, Durable Object, service binding, and the
-least-privilege runtime Tunnel/DNS token bindings; verify its exact scope before applying a plan.
-It also uses a PlanetScale service token limited to database,
-branch, and connection management for the retained production database. Rotate
-the Cloudflare token before August 2, 2027 and replace the corresponding secret
-in all three GitHub environments without changing binding names.
+The manually dispatched `Glass Cloud` workflow accepts only `staging` and `production`. Each GitHub
+environment holds its own Cloudflare token, PlanetScale token, Better Auth secret, Connect ticket
+secret, tunnel credentials, and OAuth credentials. GitHub reserves the `GITHUB_` prefix, so OAuth
+values are stored as `OAUTH_GITHUB_CLIENT_ID` and `OAUTH_GITHUB_CLIENT_SECRET` and mapped by the
+workflow.
+
+Production protection rules remain a GitHub authorization boundary. Rotate the Cloudflare CI token
+before August 2, 2027 and update both retained GitHub environments without changing binding names.
+
+## Local development
+
+Local development uses the same Worker entry, contracts, schema, and migration chain. It stores
+product data in an isolated Docker volume and Worker state under `.glass-local/<instance>`. Its only
+remote Cloudflare dependency is an explicit service binding to staging's private tunnel-control
+Worker so managed Glass Connect tunnel provisioning remains testable end to end. See
+[Development runtime](../internals/development-runtime.md).
 
 ## Source map
 
 - Infrastructure stack: `infra/cloud/alchemy.run.ts`
-- Public stage origins: `config/glass-cloud.json`
+- Deployed origins: `config/glass-cloud.json`
 - Stage policy: `infra/cloud/src/environments.ts`
-- Generated Better Auth schema: `apps/api/src/db/auth-schema.generated.ts`
-- Composed durable schema: `apps/api/src/db/schema.ts`
+- Local runtime: `infra/local/`, `scripts/local-runtime.mjs`
 - Committed migrations: `infra/cloud/migrations/postgres/`
-- Cloud application boundary: `apps/api/`
-- Managed tunnel lifecycle: `apps/api/src/tunnel-service.ts`
-- Proof/ticket authority: `apps/api/src/connect-authority.ts`
-- CI verification: `.github/workflows/`
+- CI workflow: `.github/workflows/cloud.yml`
 - Release readiness: `docs/operations/releases.md`

@@ -1,13 +1,13 @@
 # Glass documentation
 
 Glass documentation is organized by audience. The repository contains the architectural
-constitution, runnable monorepo, deployed Glass Cloud, durable product core, and synchronization implementation. Development,
-staging, and production serve the shared web renderer and product API from one Worker origin, and
+constitution, runnable monorepo, deployed Glass Cloud, durable product core, and synchronization implementation. Local development,
+staging, and production each serve the shared web renderer and product API from one Worker origin, and
 the production Better Auth GitHub lifecycle has passed live verification. Durable environment trust,
-managed Glass Connect transport, and authorized execution capabilities are implemented and deployed.
+managed Glass Connect transport, and authorized execution capabilities are implemented. Staging and production are deployed; development runs locally.
 Glass Connect uses remotely managed per-environment Cloudflare Tunnels with a direct client-to-node
 execution data path. Production has passed live environment trust, tunnel, direct WebSocket,
-durable-result, rotation, and provider-cleanup verification.
+durable-result and provider-cleanup verification.
 Production-ready multi-user product experiences and releases remain later completion gates unless
 a page explicitly says otherwise. Editor collaboration has no Glass implementation milestone; it
 remains owned by OpenEditor and arrives in Glass only through a coordinated OpenEditor dependency

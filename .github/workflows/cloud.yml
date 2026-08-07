@@ -8,7 +8,6 @@ on:
         required: true
         type: choice
         options:
-          - development
           - staging
           - production
       operation:
@@ -73,7 +72,6 @@ jobs:
           case "${{ inputs.environment }}" in
             production) vp run plan:prod ;;
             staging) vp run plan:staging ;;
-            development) vp run plan:dev ;;
           esac
 
       - name: Deploy reviewed plan
@@ -94,7 +92,6 @@ jobs:
           case "${{ inputs.environment }}" in
             production) vp run deploy:prod:ci ;;
             staging) vp run deploy:staging:ci ;;
-            development) vp run deploy:dev:ci ;;
           esac
 
       - name: Verify post-deploy plan
@@ -115,5 +112,4 @@ jobs:
           case "${{ inputs.environment }}" in
             production) vp run plan:prod ;;
             staging) vp run plan:staging ;;
-            development) vp run plan:dev ;;
           esac

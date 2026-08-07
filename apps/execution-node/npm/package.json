@@ -1,0 +1,23 @@
+{
+  "name": "glass-connect",
+  "version": "0.2.0",
+  "description": "Publish a computer to Glass with one command.",
+  "license": "UNLICENSED",
+  "bin": {
+    "glass-connect": "dist/cli.js"
+  },
+  "files": [
+    "dist/cli.js",
+    "README.md"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "node-pty": "1.1.0"
+  },
+  "engines": {
+    "node": ">=24.13.1"
+  }
+}

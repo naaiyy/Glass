@@ -3,11 +3,7 @@ export const glassCloudStagingStage = "staging" as const;
 export const glassCloudMigrationsDirectory = "./migrations/postgres" as const;
 export const glassCloudSchemaPath = "../../apps/api/src/db/schema.ts" as const;
 
-export type GlassCloudStage =
-  | typeof glassCloudProductionStage
-  | typeof glassCloudStagingStage
-  | "dev"
-  | `dev_${string}`;
+export type GlassCloudStage = typeof glassCloudProductionStage | typeof glassCloudStagingStage;
 
 export type GlassCloudStagePolicy = Readonly<{
   stage: GlassCloudStage;
@@ -32,19 +28,19 @@ export const resolveGlassCloudStage = (stage: string): GlassCloudStagePolicy => 
     };
   }
 
-  if (stage === glassCloudStagingStage || stage === "dev" || /^dev_[a-z0-9_-]+$/u.test(stage)) {
+  if (stage === glassCloudStagingStage) {
     return {
       stage: stage as GlassCloudStage,
       database: {
         ownership: "production-reference",
         clusterSize: "PS_DEV",
         replicas: 0,
-        retainBranch: stage === glassCloudStagingStage || stage === "dev",
+        retainBranch: true,
       },
     };
   }
 
   throw new Error(
-    `Unsupported Glass Cloud stage "${stage}". Use "prod", "staging", or Alchemy's default "dev_$USER" stage.`,
+    `Unsupported Glass Cloud stage "${stage}". Use "prod" or "staging". Development runs locally.`,
   );
 };

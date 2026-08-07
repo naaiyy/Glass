@@ -1,6 +1,5 @@
 import type { Client, QueryResult } from "pg";
 import { describe, expect, it } from "vite-plus/test";
-import { generateKeyPairSync, sign } from "node:crypto";
 
 import { createPostgresEnvironmentService, EnvironmentFailure } from "./environment-service.ts";
 
@@ -139,7 +138,7 @@ describe("durable environment security boundary", () => {
     expect(statusCalls.at(-1)?.text).toBe("rollback");
   });
 
-  it("requires current administrator authority for approval, rotation, and revocation", async () => {
+  it("requires current administrator authority for approval and revocation", async () => {
     const environment = {
       id: environmentId,
       organization_id: organizationId,
@@ -165,14 +164,6 @@ describe("durable environment security boundary", () => {
       }),
     ).rejects.toEqual(expect.objectContaining({ code: "forbidden" }));
 
-    const rotationCalls: Call[] = [];
-    await expect(
-      createPostgresEnvironmentService(makeMemberClient(rotationCalls)).approveRotation(userId, {
-        organizationId,
-        rotationCode: "ABCDE-23456",
-      }),
-    ).rejects.toEqual(expect.objectContaining({ code: "forbidden" }));
-
     const revocationCalls: Call[] = [];
     await expect(
       createPostgresEnvironmentService(makeMemberClient(revocationCalls)).revoke(
@@ -181,7 +172,7 @@ describe("durable environment security boundary", () => {
       ),
     ).rejects.toEqual(expect.objectContaining({ code: "forbidden" }));
     expect(
-      [...approvalCalls, ...rotationCalls, ...revocationCalls].some((call) =>
+      [...approvalCalls, ...revocationCalls].some((call) =>
         call.text.includes("insert into environment_security_events"),
       ),
     ).toBe(false);
@@ -270,115 +261,6 @@ describe("durable environment security boundary", () => {
     expect(calls[0]?.text).toContain("c.revoked_at is null");
     expect(calls[0]?.text).toContain("e.revoked_at is null");
     expect(calls[0]?.text).toContain("e.key_version = c.issued_key_version");
-  });
-
-  it("requires both rotation keys, revokes credentials, audits the approver, and replays safely", async () => {
-    const current = generateKeyPairSync("ed25519");
-    const replacement = generateKeyPairSync("ed25519");
-    const currentPublic = (current.publicKey.export({ format: "der", type: "spki" }) as Buffer)
-      .subarray(-32)
-      .toString("base64url");
-    const replacementPublic = (
-      replacement.publicKey.export({ format: "der", type: "spki" }) as Buffer
-    )
-      .subarray(-32)
-      .toString("base64url");
-    const pollingToken = "p".repeat(43);
-    const pollingHash = Buffer.from(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pollingToken)),
-    ).toString("base64url");
-    const challenge = "glass-environment-rotate-v2\ndual-proof";
-    const challengeRow = {
-      id: challengeId,
-      purpose: "rotate",
-      organization_id: organizationId,
-      environment_id: environmentId,
-      challenge,
-      polling_token_hash: pollingHash,
-      verification_public_key: currentPublic,
-      requested_public_key: replacementPublic,
-      display_name: null,
-      platform: null,
-      requested_by_user_id: userId,
-      expires_at: new Date(Date.now() + 60_000),
-      consumed_at: null,
-    };
-    const rotated = {
-      id: environmentId,
-      organization_id: organizationId,
-      display_name: "Build Mac",
-      platform: "macos",
-      public_key: replacementPublic,
-      key_version: 2,
-      created_by_user_id: userId,
-      created_at: new Date(),
-      updated_at: new Date(),
-      revoked_at: null,
-    };
-    const calls: Call[] = [];
-    const client = {
-      query: async (text: string, values: readonly unknown[] = []) => {
-        calls.push({ text, values });
-        if (text.includes("from environment_identity_challenges")) return { rows: [challengeRow] };
-        if (text.includes("select role")) return { rows: [{ role: "owner" }] };
-        if (text.startsWith("update execution_environments")) return { rows: [rotated] };
-        return { rows: [] };
-      },
-    } as unknown as Client;
-    const currentSignature = sign(null, Buffer.from(challenge), current.privateKey).toString(
-      "base64url",
-    ) as never;
-    const replacementSignature = sign(
-      null,
-      Buffer.from(challenge),
-      replacement.privateKey,
-    ).toString("base64url") as never;
-    await expect(
-      createPostgresEnvironmentService(client).completeRotation({
-        rotationId: challengeId,
-        pollingToken,
-        currentKeySignature: currentSignature,
-        replacementKeySignature: "A".repeat(86) as never,
-      }),
-    ).rejects.toEqual(expect.objectContaining({ code: "forbidden" }));
-    expect(calls.some((call) => call.text.startsWith("update execution_environments"))).toBe(false);
-
-    calls.length = 0;
-    await createPostgresEnvironmentService(client).completeRotation({
-      rotationId: challengeId,
-      pollingToken,
-      currentKeySignature: currentSignature,
-      replacementKeySignature: replacementSignature,
-    });
-    expect(
-      calls.some((call) => call.text.includes("update environment_credentials set revoked_at")),
-    ).toBe(true);
-    const audit = calls.find((call) =>
-      call.text.includes("insert into environment_security_events"),
-    );
-    expect(audit?.values[3]).toBe("key-rotated");
-    expect(audit?.values[4]).toBe(userId);
-    expect(audit?.values[6]).toEqual({ keyVersion: 2 });
-
-    const replayCalls: Call[] = [];
-    const replayClient = {
-      query: async (text: string, values: readonly unknown[] = []) => {
-        replayCalls.push({ text, values });
-        if (text.includes("from environment_identity_challenges"))
-          return { rows: [{ ...challengeRow, consumed_at: new Date() }] };
-        if (text.includes("select * from execution_environments")) return { rows: [rotated] };
-        return { rows: [] };
-      },
-    } as unknown as Client;
-    await expect(
-      createPostgresEnvironmentService(replayClient).completeRotation({
-        rotationId: challengeId,
-        pollingToken,
-        currentKeySignature: currentSignature,
-        replacementKeySignature: replacementSignature,
-      }),
-    ).resolves.toMatchObject({ keyVersion: 2, publicKey: replacementPublic });
-    expect(replayCalls.some((call) => call.text.startsWith("update "))).toBe(false);
   });
 
   it("audits an accepted request using safe metadata rather than pairing secrets or keys", async () => {

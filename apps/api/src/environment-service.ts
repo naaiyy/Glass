@@ -1,7 +1,5 @@
 import type {
   ApproveEnvironmentPairingRequest,
-  ApproveEnvironmentRotationRequest,
-  BeginEnvironmentRotationResponse,
   BeginEnvironmentPairingRequest,
   BeginEnvironmentPairingResponse,
   CompleteEnvironmentProofRequest,
@@ -10,16 +8,11 @@ import type {
   EnvironmentIdentityChallenge,
   EnvironmentPairingStatus,
   EnvironmentPairingStatusRequest,
-  EnvironmentRotationStatus,
-  EnvironmentRotationStatusRequest,
-  CompleteEnvironmentRotationRequest,
-  EnvironmentPublicKey,
   ExecutionEnvironment,
 } from "@glass/contracts/environments";
 import {
   environmentCredentialScope,
   environmentPairingApprovalPath,
-  environmentRotationApprovalPath,
 } from "@glass/contracts/environments";
 import type {
   EnvironmentChallengeId,
@@ -59,13 +52,6 @@ export interface EnvironmentService {
   approvePairing(userId: string, request: ApproveEnvironmentPairingRequest): Promise<void>;
   pairingStatus(request: EnvironmentPairingStatusRequest): Promise<EnvironmentPairingStatus>;
   completePairing(request: CompleteEnvironmentProofRequest): Promise<ExecutionEnvironment>;
-  beginRotation(
-    credential: VerifiedEnvironmentCredential,
-    publicKey: EnvironmentPublicKey,
-  ): Promise<BeginEnvironmentRotationResponse>;
-  approveRotation(userId: string, request: ApproveEnvironmentRotationRequest): Promise<void>;
-  rotationStatus(request: EnvironmentRotationStatusRequest): Promise<EnvironmentRotationStatus>;
-  completeRotation(request: CompleteEnvironmentRotationRequest): Promise<ExecutionEnvironment>;
   list(userId: string, organizationId: OrganizationId): Promise<readonly ExecutionEnvironment[]>;
   createCredentialChallenge(
     request: CreateCredentialChallengeRequest,
@@ -97,7 +83,7 @@ type ChallengeRow = QueryResultRow & {
   id: string;
   organization_id: string | null;
   environment_id: string | null;
-  purpose: "pair" | "credential" | "rotate";
+  purpose: "pair" | "credential";
   challenge: string | null;
   polling_token_hash: string | null;
   verification_public_key: string;
@@ -170,9 +156,6 @@ const queryOne = async <Row extends QueryResultRow>(
 type EnvironmentSecurityEventType =
   | "credential-issued"
   | "environment-revoked"
-  | "key-rotation-approved"
-  | "key-rotation-requested"
-  | "key-rotated"
   | "pairing-approved"
   | "pairing-completed"
   | "pairing-requested";
@@ -416,203 +399,6 @@ export const createPostgresEnvironmentService = (client: Client): EnvironmentSer
         type: "pairing-completed",
       });
       return environmentFromRow(result.rows[0]!);
-    }),
-
-  beginRotation: (credential, publicKey) =>
-    transaction(client, async () => {
-      const environment = await queryOne(
-        client,
-        `select * from execution_environments where id = $1 and organization_id = $2 and revoked_at is null for update`,
-        [credential.environmentId, credential.organizationId],
-      );
-      if (environment === null || Number(environment.key_version) !== credential.keyVersion)
-        throw new EnvironmentFailure(
-          "forbidden",
-          "The environment credential is no longer current.",
-        );
-      if (environment.public_key === publicKey)
-        throw new EnvironmentFailure(
-          "conflict",
-          "The replacement key must differ from the active key.",
-        );
-      const active = await queryOne(
-        client,
-        `select count(*)::integer as count from environment_identity_challenges where environment_id = $1 and purpose = 'rotate' and consumed_at is null and expires_at > now()`,
-        [credential.environmentId],
-      );
-      if (Number(active?.count ?? 0) >= 2)
-        throw new EnvironmentFailure(
-          "conflict",
-          "Too many key rotations are active for this environment.",
-        );
-      const id = crypto.randomUUID();
-      const code = pairingCode();
-      const poll = randomToken();
-      const expiresAt = new Date(Date.now() + challengeLifetimeMs);
-      await client.query(
-        `insert into environment_identity_challenges
-          (id, organization_id, environment_id, purpose, verification_public_key, requested_public_key, pairing_code_hash, polling_token_hash, expires_at)
-         values ($1, $2, $3, 'rotate', $4, $5, $6, $7, $8)`,
-        [
-          id,
-          credential.organizationId,
-          credential.environmentId,
-          environment.public_key,
-          publicKey,
-          await digest(code),
-          await digest(poll),
-          expiresAt,
-        ],
-      );
-      await appendSecurityEvent(client, {
-        actorUserId: null,
-        correlationId: id,
-        environmentId: credential.environmentId,
-        metadata: { keyVersion: credential.keyVersion },
-        organizationId: credential.organizationId,
-        type: "key-rotation-requested",
-      });
-      return {
-        rotationId: id as EnvironmentChallengeId,
-        rotationCode: code,
-        pollingToken: poll,
-        approvalPath: environmentRotationApprovalPath,
-        expiresAt: expiresAt.toISOString() as IsoDateTime,
-      };
-    }),
-
-  approveRotation: (userId, request) =>
-    transaction(client, async () => {
-      await requireAdministrator(client, request.organizationId, userId);
-      const row = requireLiveChallenge(
-        await queryOne<ChallengeRow>(
-          client,
-          `select * from environment_identity_challenges where purpose = 'rotate' and pairing_code_hash = $1 for update`,
-          [await digest(request.rotationCode)],
-        ),
-        "rotate",
-      );
-      if (row.organization_id !== request.organizationId)
-        throw new EnvironmentFailure(
-          "forbidden",
-          "The rotation request belongs to another organization.",
-        );
-      if (row.requested_by_user_id !== null)
-        throw new EnvironmentFailure("conflict", "The rotation request was already approved.");
-      const challenge = [
-        "glass-environment-rotate-v2",
-        row.id,
-        row.environment_id,
-        row.organization_id,
-        row.verification_public_key,
-        row.requested_public_key,
-        randomToken(),
-      ].join("\n");
-      await client.query(
-        `update environment_identity_challenges set requested_by_user_id = $1, challenge = $2 where id = $3`,
-        [userId, challenge, row.id],
-      );
-      await appendSecurityEvent(client, {
-        actorUserId: userId,
-        correlationId: row.id,
-        environmentId: row.environment_id,
-        metadata: {},
-        organizationId: request.organizationId,
-        type: "key-rotation-approved",
-      });
-    }),
-
-  rotationStatus: (request) =>
-    transaction(client, async () => {
-      const row = await readChallenge(client, request.rotationId);
-      if (
-        row === null ||
-        row.purpose !== "rotate" ||
-        !constantTimeEqual(row.polling_token_hash ?? "", await digest(request.pollingToken))
-      )
-        throw new EnvironmentFailure("not-found", "The rotation request does not exist.");
-      if (row.consumed_at !== null) {
-        const environment = await queryOne(
-          client,
-          `select * from execution_environments where id = $1 and public_key = $2`,
-          [row.environment_id, row.requested_public_key],
-        );
-        if (environment === null)
-          throw new EnvironmentFailure("conflict", "The completed rotation state is unavailable.");
-        return { status: "completed", environment: environmentFromRow(environment) };
-      }
-      if (new Date(row.expires_at).getTime() <= Date.now())
-        throw new EnvironmentFailure("conflict", "The rotation request expired.");
-      return row.challenge === null
-        ? { status: "pending", expiresAt: asIso(row.expires_at) }
-        : { status: "approved", challenge: row.challenge, expiresAt: asIso(row.expires_at) };
-    }),
-
-  completeRotation: (request) =>
-    transaction(client, async () => {
-      const row = await readChallenge(client, request.rotationId);
-      if (
-        row === null ||
-        row.purpose !== "rotate" ||
-        !constantTimeEqual(row.polling_token_hash ?? "", await digest(request.pollingToken))
-      )
-        throw new EnvironmentFailure("not-found", "The rotation request does not exist.");
-      if (row.consumed_at !== null) {
-        const completed = await queryOne(
-          client,
-          `select * from execution_environments where id = $1 and public_key = $2`,
-          [row.environment_id, row.requested_public_key],
-        );
-        if (completed === null)
-          throw new EnvironmentFailure("conflict", "The completed rotation state is unavailable.");
-        return environmentFromRow(completed);
-      }
-      const live = requireLiveChallenge(row, "rotate");
-      if (
-        live.environment_id === null ||
-        live.organization_id === null ||
-        live.challenge === null ||
-        live.requested_public_key === null ||
-        live.requested_by_user_id === null
-      )
-        throw new EnvironmentFailure("conflict", "The rotation request has not been approved.");
-      await requireAdministrator(client, live.organization_id, live.requested_by_user_id);
-      const [currentProof, replacementProof] = await Promise.all([
-        verifyProof(live.verification_public_key, live.challenge, request.currentKeySignature),
-        verifyProof(live.requested_public_key, live.challenge, request.replacementKeySignature),
-      ]);
-      if (!currentProof || !replacementProof)
-        throw new EnvironmentFailure(
-          "forbidden",
-          "Both the current and replacement environment keys must prove possession.",
-        );
-      const result = await client.query<QueryResultRow>(
-        `update execution_environments set public_key = $1, key_version = key_version + 1, updated_at = now() where id = $2 and public_key = $3 and revoked_at is null returning *`,
-        [live.requested_public_key, live.environment_id, live.verification_public_key],
-      );
-      if (result.rows.length !== 1)
-        throw new EnvironmentFailure(
-          "conflict",
-          "The environment key changed before rotation completed.",
-        );
-      await client.query(
-        `update environment_credentials set revoked_at = now() where environment_id = $1 and revoked_at is null`,
-        [live.environment_id],
-      );
-      await client.query(
-        `update environment_identity_challenges set consumed_at = now() where id = $1`,
-        [live.id],
-      );
-      const rotated = result.rows[0]!;
-      await appendSecurityEvent(client, {
-        actorUserId: live.requested_by_user_id,
-        correlationId: live.id,
-        environmentId: live.environment_id,
-        metadata: { keyVersion: Number(rotated.key_version) },
-        organizationId: live.organization_id,
-        type: "key-rotated",
-      });
-      return environmentFromRow(rotated);
     }),
 
   list: async (userId, organizationId) => {

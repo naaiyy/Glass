@@ -6,6 +6,8 @@ import { resolveMobileRouteSet } from "../navigation.ts";
 import { useProductCloudState } from "../product-cloud/ProductCloudProvider.tsx";
 import { AuthRouteScreen, BootstrapRouteScreen } from "../screens/AccessScreens.tsx";
 import { NoteScreen } from "../screens/NoteScreen.tsx";
+import { EnvironmentsScreen } from "../screens/EnvironmentsScreen.tsx";
+import { MobileHeaderActions } from "../screens/MobileHeaderActions.tsx";
 import { ProjectScreen } from "../screens/ProjectScreen.tsx";
 import { ArtifactScreen, ThreadScreen } from "../screens/ReadOnlyEntityScreens.tsx";
 import { WorkspaceScreen } from "../screens/WorkspaceScreen.tsx";
@@ -45,17 +47,14 @@ export const RootNavigator = () => {
         ) : routeSet === "auth" ? (
           <Stack.Screen component={AuthRouteScreen} name="Auth" options={{ headerShown: false }} />
         ) : (
-          <Stack.Group navigationKey="product">
+          <Stack.Group navigationKey="product" screenOptions={{ headerRight: MobileHeaderActions }}>
             <Stack.Screen
               component={WorkspaceScreen}
               name="Workspace"
-              options={{ headerTransparent: true, title: "Workspace" }}
+              options={{ title: "Workspace" }}
             />
-            <Stack.Screen
-              component={ProjectScreen}
-              name="Project"
-              options={{ headerTransparent: true }}
-            />
+            <Stack.Screen component={ProjectScreen} name="Project" options={{ title: "Project" }} />
+            <Stack.Screen component={EnvironmentsScreen} name="Environments" />
             <Stack.Screen component={ThreadScreen} name="Thread" />
             <Stack.Screen component={ArtifactScreen} name="Artifact" />
             <Stack.Screen

@@ -25,6 +25,7 @@ describe("Glass API authentication bindings", () => {
       config: {
         allowedHosts: ["glasscloud-api-prod-*.workers.dev"],
         connectionString: "postgres://hyperdrive.invalid/glass",
+        protocol: "https",
         trustedOrigins: ["dev.glass.desktop://*", "dev.glass.mobile://*"],
         secret: "a-secure-test-secret-with-at-least-32-characters",
         stage: "prod",
@@ -37,7 +38,7 @@ describe("Glass API authentication bindings", () => {
     });
   });
 
-  it("trusts local client OAuth returns only in the development stage", () => {
+  it("trusts loopback OAuth returns only in the local stage", () => {
     const result = resolveGlassAuthConfig(validBindings);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -47,12 +48,14 @@ describe("Glass API authentication bindings", () => {
     expect(result.config.trustedOrigins).not.toContain("http://*");
     expect(result.config.trustedOrigins).not.toContain("https://*");
 
-    const development = resolveGlassAuthConfig({ ...validBindings, ALCHEMY_STAGE: "dev" });
-    expect(development.ok).toBe(true);
-    if (!development.ok) return;
-    expect(development.config.trustedOrigins).toContain("dev.glass.mobile://*");
-    expect(development.config.trustedOrigins).toContain("exp://**");
-    expect(development.config.trustedOrigins).toContain("http://127.0.0.1:*");
+    const local = resolveGlassAuthConfig({ ...validBindings, ALCHEMY_STAGE: "local" });
+    expect(local.ok).toBe(true);
+    if (!local.ok) return;
+    expect(local.config.allowedHosts).toEqual(["127.0.0.1:*", "localhost:*"]);
+    expect(local.config.protocol).toBe("http");
+    expect(local.config.trustedOrigins).toContain("dev.glass.mobile://*");
+    expect(local.config.trustedOrigins).toContain("exp://**");
+    expect(local.config.trustedOrigins).toContain("http://127.0.0.1:*");
   });
 
   it("rejects unknown or missing deployment stages", () => {

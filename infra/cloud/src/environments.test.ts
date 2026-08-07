@@ -25,24 +25,16 @@ describe("Glass Cloud stages", () => {
     });
   });
 
-  it.each(["staging", "dev", "dev_naaiyy"])(
-    "gives %s an isolated branch of the production database",
-    (stage) => {
-      expect(resolveGlassCloudStage(stage)).toMatchObject({
-        stage,
-        database: {
-          ownership: "production-reference",
-          clusterSize: "PS_DEV",
-          replicas: 0,
-        },
-      });
-    },
-  );
-
-  it("retains shared stages but permits personal development cleanup", () => {
-    expect(resolveGlassCloudStage("staging").database.retainBranch).toBe(true);
-    expect(resolveGlassCloudStage("dev").database.retainBranch).toBe(true);
-    expect(resolveGlassCloudStage("dev_naaiyy").database.retainBranch).toBe(false);
+  it("gives staging one retained production-shaped database branch", () => {
+    expect(resolveGlassCloudStage("staging")).toEqual({
+      stage: "staging",
+      database: {
+        ownership: "production-reference",
+        clusterSize: "PS_DEV",
+        replicas: 0,
+        retainBranch: true,
+      },
+    });
   });
 
   it("keeps one schema and migration chain", () => {
@@ -50,7 +42,7 @@ describe("Glass Cloud stages", () => {
     expect(glassCloudMigrationsDirectory).toBe("./migrations/postgres");
   });
 
-  it.each(["development", "production", "preview", "", "Dev_Naaiyy"])(
+  it.each(["development", "dev", "dev_naaiyy", "production", "preview", "", "Dev_Naaiyy"])(
     "rejects non-conventional stage %j",
     (stage) => {
       expect(() => resolveGlassCloudStage(stage)).toThrow(/Unsupported Glass Cloud stage/u);

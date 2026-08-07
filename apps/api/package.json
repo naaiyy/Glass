@@ -6,7 +6,7 @@
     "auth:schema": "auth generate --config src/auth.cli.ts --output src/db/auth-schema.generated.ts --yes",
     "build": "wrangler deploy --dry-run --outdir dist-worker && node scripts/smoke-built-worker.mjs",
     "db:migrations": "drizzle-kit generate --dialect postgresql --schema src/db/schema.ts --out ../../infra/cloud/migrations/postgres",
-    "dev": "wrangler dev",
+    "dev": "node ../../scripts/dev-runner.mjs api",
     "test": "vp test run",
     "typecheck": "tsgo --noEmit"
   },

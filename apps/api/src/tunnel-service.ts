@@ -85,7 +85,7 @@ export const createPostgresTunnelService = (
   client: Client,
   control: ManagedTunnelControl,
   zoneName: string,
-  stage: "dev" | "prod" | "staging",
+  stage: "local" | "prod" | "staging",
   recordFrame: (grant: ConnectDispatchGrantClaims, frame: ConnectNodeFrame) => Promise<void>,
 ): TunnelService => {
   const service: TunnelService = {

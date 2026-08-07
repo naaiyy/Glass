@@ -1,23 +1,26 @@
+#!/usr/bin/env node
+
 import type { WorkspaceId } from "@glass/contracts/ids";
 import { decodeId } from "@glass/contracts/ids";
 import { readExecutionDescriptor } from "@glass/execution-core/capabilities";
 import { Effect } from "effect";
+import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { hostname, platform } from "node:os";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { cwd } from "node:process";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { CloudflaredSupervisor } from "./cloudflared.ts";
 import { createExecutionNodeHandler, type ExecutionNodeWorkspace } from "./execution-handler.ts";
 import {
   beginPairing,
-  beginKeyRotation,
   createNodeIdentity,
   defaultIdentityPath,
+  EnvironmentRequestError,
   finishPairing,
-  finishKeyRotation,
   loadNodeIdentity,
   refreshCredential,
   saveNodeIdentity,
-  stageKeyRotation,
 } from "./identity.ts";
 import { createTunnelControl, TunnelControlError } from "./tunnel-control.ts";
 import { startTunnelOrigin } from "./tunnel-origin.ts";
@@ -31,32 +34,96 @@ import {
 } from "./workspace-config.ts";
 
 const args = process.argv.slice(2);
-const command = args[0] ?? "descriptor";
+const command =
+  args[0] === "--help" || args[0] === "-h"
+    ? "help"
+    : args[0] === undefined || args[0].startsWith("--")
+      ? "start"
+      : args[0];
 const option = (name: string): string | undefined => {
   const index = args.indexOf(name);
   return index < 0 ? undefined : args[index + 1];
 };
 
-const identityPath = option("--identity") ?? defaultIdentityPath();
-const workspaceRegistryPath = option("--workspaces") ?? defaultWorkspaceRegistryPath(identityPath);
+const identityPath = defaultIdentityPath();
+const workspaceRegistryPath = defaultWorkspaceRegistryPath(identityPath);
 
-if (command === "descriptor") {
-  process.stdout.write(`${JSON.stringify(await Effect.runPromise(readExecutionDescriptor))}\n`);
-} else if (command === "pair") {
-  const origin = option("--api") ?? process.env.GLASS_CLOUD_ORIGIN;
-  if (origin === undefined) throw new Error("Set GLASS_CLOUD_ORIGIN or pass --api.");
-  let identity = (await loadNodeIdentity(identityPath)) ?? createNodeIdentity(origin);
+const publishIdentity = async (origin: string) => {
+  let identity = createNodeIdentity(origin);
   const nodePlatform =
     platform() === "darwin" ? "macos" : platform() === "win32" ? "windows" : "linux";
   const pairing = await beginPairing(identity, option("--name") ?? hostname(), nodePlatform);
   await saveNodeIdentity(identity, identityPath);
   process.stdout.write(
-    `Publish this execution environment in Glass.\nPairing code: ${pairing.pairingCode}\nApproval: ${new URL(pairing.approvalPath, identity.apiOrigin)}\n`,
+    `Publish this computer with Glass Connect.\nOne-time code: ${pairing.pairingCode}\nOpen Glass: ${new URL(pairing.approvalPath, identity.apiOrigin)}\nWaiting for approval…\n`,
   );
   identity = await finishPairing(identity, pairing);
   identity = await refreshCredential(identity);
   await saveNodeIdentity(identity, identityPath);
-  process.stdout.write(`Published as ${identity.environment?.displayName}.\n`);
+  process.stdout.write(`Published as ${identity.environment?.displayName}. Connecting…\n`);
+  return identity;
+};
+
+const runConnectCommand = async (): Promise<void> => {
+  const commandArguments = [...process.execArgv, process.argv[1] ?? "", "connect"];
+  const child = spawn(process.execPath, commandArguments, { stdio: "inherit" });
+  const result = await new Promise<
+    Readonly<{ code: number | null; signal: NodeJS.Signals | null }>
+  >((complete, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => complete({ code, signal }));
+  });
+  if (result.signal !== null) process.kill(process.pid, result.signal);
+  if (result.code !== 0) process.exitCode = result.code ?? 1;
+};
+
+if (command === "start") {
+  const configuredOrigin = process.env.GLASS_CLOUD_ORIGIN;
+  let identity = await loadNodeIdentity(identityPath);
+  if (
+    identity !== null &&
+    configuredOrigin !== undefined &&
+    new URL(identity.apiOrigin).origin !== new URL(configuredOrigin).origin
+  ) {
+    throw new Error(
+      `This Glass Connect identity belongs to ${identity.apiOrigin}. Use stage-specific Glass Connect state for ${configuredOrigin}.`,
+    );
+  }
+  if (identity !== null && identity.environment !== null) {
+    try {
+      identity = await refreshCredential(identity);
+      await saveNodeIdentity(identity, identityPath);
+      process.stdout.write(`Resuming Glass Connect as ${identity.environment?.displayName}.\n`);
+    } catch (error) {
+      if (!(error instanceof EnvironmentRequestError) || ![401, 403, 404].includes(error.status))
+        throw error;
+      process.stdout.write("The previous publication is no longer valid. Publishing again.\n");
+      identity = await publishIdentity(identity.apiOrigin);
+    }
+  } else {
+    const origin = configuredOrigin ?? identity?.apiOrigin;
+    if (origin === undefined)
+      throw new Error("Glass Connect has no configured Glass Cloud origin.");
+    identity = await publishIdentity(origin);
+  }
+  const registeredWorkspaces = await loadWorkspaceRegistry(workspaceRegistryPath, {
+    allowMissing: true,
+  });
+  const root = cwd();
+  if (!registeredWorkspaces.some((workspace) => workspace.root === root)) {
+    const workspaceId = decodeId<WorkspaceId>(randomUUID(), "workspace.id");
+    if (!workspaceId.ok) throw new Error("Could not create a workspace identifier.");
+    await addWorkspaceRegistration(
+      { id: workspaceId.value, name: basename(root), root },
+      workspaceRegistryPath,
+    );
+    process.stdout.write(`Added ${root} to the folders available in Glass.\n`);
+  }
+  await runConnectCommand();
+} else if (command === "help") {
+  process.stdout.write("Usage: glass-connect [--name NAME]\n");
+} else if (command === "descriptor") {
+  process.stdout.write(`${JSON.stringify(await Effect.runPromise(readExecutionDescriptor))}\n`);
 } else if (command === "workspace-add") {
   const id = decodeId<WorkspaceId>(option("--id"), "workspace.id");
   const name = option("--name")?.trim();
@@ -83,7 +150,7 @@ if (command === "descriptor") {
 } else if (command === "connect") {
   let identity = await loadNodeIdentity(identityPath);
   if (identity === null)
-    throw new Error("No execution identity exists. Run the pair command first.");
+    throw new Error("No published computer exists. Start Glass Connect without a subcommand.");
   const workspaces: readonly ExecutionNodeWorkspace[] =
     await loadConfiguredWorkspaces(workspaceRegistryPath);
   const descriptor = await Effect.runPromise(readExecutionDescriptor);
@@ -146,9 +213,15 @@ if (command === "descriptor") {
     await supervisor.stop();
     await origin.stop();
   };
-  const controlFailure = (error: unknown): void => {
-    if (error instanceof TunnelControlError && (error.status === 401 || error.status === 403))
+  const controlFailure = (error: unknown): boolean => {
+    if (
+      (error instanceof TunnelControlError || error instanceof EnvironmentRequestError) &&
+      (error.status === 401 || error.status === 403 || error.status === 404)
+    ) {
       void shutdown();
+      return true;
+    }
+    return false;
   };
   supervisor = new CloudflaredSupervisor({
     getConfiguration: async () => {
@@ -179,6 +252,12 @@ if (command === "descriptor") {
       }, 1_000);
     },
     onDisconnected: (error) => {
+      if (controlFailure(error)) {
+        process.stderr.write(
+          "[Glass Connect] This computer is no longer published. Start Glass Connect again to publish it with a new code.\n",
+        );
+        return;
+      }
       process.stderr.write(
         `[Glass Connect] Connector unavailable: ${error instanceof Error ? error.message : "Unknown failure."}\n`,
       );
@@ -196,30 +275,8 @@ if (command === "descriptor") {
         process.exitCode = 0;
       });
     });
-} else if (command === "rotate") {
-  let identity = await loadNodeIdentity(identityPath);
-  if (identity === null || identity.environment === null)
-    throw new Error("No published execution identity exists. Run the pair command first.");
-  identity = await refreshCredential(identity);
-  identity = stageKeyRotation(identity);
-  // The staged replacement is durable before Cloud can commit it, so a lost response cannot lose the key.
-  await saveNodeIdentity(identity, identityPath);
-  identity = await beginKeyRotation(identity);
-  await saveNodeIdentity(identity, identityPath);
-  const rotation = identity.pendingRotation?.rotation;
-  if (rotation === null || rotation === undefined)
-    throw new Error("Rotation setup did not complete.");
-  process.stdout.write(
-    `Approve this key rotation in Glass.\nRotation code: ${rotation.rotationCode}\nApproval: ${new URL(rotation.approvalPath, identity.apiOrigin)}\n`,
-  );
-  identity = await finishKeyRotation(identity);
-  // Promote the replacement immediately after confirmed Cloud success, before credential refresh.
-  await saveNodeIdentity(identity, identityPath);
-  identity = await refreshCredential(identity);
-  await saveNodeIdentity(identity, identityPath);
-  process.stdout.write(`Rotated key for ${identity.environment?.displayName}.\n`);
 } else {
   throw new Error(
-    "Usage: glass-execution-node descriptor | pair [--api URL] [--name NAME] | rotate | workspace-add --id UUID --name NAME --root PATH | workspace-list | workspace-remove --id UUID | connect",
+    "Usage: glass-connect [--name NAME] | descriptor | workspace-add --id UUID --name NAME --root PATH | workspace-list | workspace-remove --id UUID",
   );
 }

@@ -20,11 +20,14 @@ Glass Cloud stores the environment registry, pairing records, and durable execut
 
 ## Capability model
 
-A node advertises supported capability identifiers and protocol compatibility. Advertisement is descriptive, not authorization. Every requested operation also requires an authenticated node, a scoped grant, a permitted project/environment/workspace association, and contract validation.
+A node advertises supported capability identifiers and protocol compatibility. Advertisement is
+descriptive, not authorization. A published environment is eligible for every supported operation
+type, but every request still requires an authenticated node, organization membership, a valid
+project/environment/workspace association, and contract validation.
 
 Environment identity and publishing are implemented independently of machine capabilities.
 Filesystem access, terminal/process management, Git, checkpoints, streaming, cancellation, and
-remote dispatch run behind typed capability grants. Web, desktop, and native mobile expose these
+remote dispatch run behind typed operation contracts. Web, desktop, and native mobile expose these
 capabilities only for an authorized project/workspace binding and online environment.
 
 ## Process boundary
@@ -37,21 +40,25 @@ Execution-only dependencies do not enter `apps/api`, web, mobile, or shared prod
 
 Publishing is the user-facing enrollment flow for a capable computer or cloud runtime. It combines explicit organization approval with environment registration and pairing, then makes the node eligible for managed Glass Connect connectivity. Pairing establishes trust; Glass Connect supplies reachability; capability grants authorize particular work.
 
-The node creates and retains an Ed25519 key pair, requests a short-lived pairing code, and polls with
-a separate high-entropy secret. A signed-in organization owner or administrator approves the code.
-The node signs the server challenge before Glass Cloud creates the environment record. Pairing
-codes, polling secrets, private keys, signatures, challenges, and issued credential tokens are not
-stored in security audit metadata. Active unauthenticated requests are bounded per public key and
-per environment.
+One Glass Connect launcher owns the lifecycle. With no durable identity it creates an Ed25519 key
+pair, requests a short-lived pairing code, and polls with a separate high-entropy secret. A
+signed-in organization owner or administrator approves the code by entering it once. The launcher
+then completes proof, starts the connector, and remains online. With an existing valid identity the
+same launcher resumes directly; a stale or revoked identity starts a fresh publication ceremony.
 
-Key rotation does not replace a key based on a signed-in browser request alone. The node stages the
-replacement key, proves possession of both the current and replacement private keys after an
-administrator approves the rotation code, and promotes the staged key only after Cloud commits the
-change. The ceremony is retry-safe if the completion response is lost.
+There are no project or machine-permission choices: publication makes the environment eligible for
+all organization projects and all supported execution capabilities. Pairing codes, polling
+secrets, private keys, signatures, challenges, and issued credential tokens are not stored in
+security audit metadata. Active unauthenticated requests are bounded per public key and per
+environment.
 
-An environment published to an organization can be discovered by other signed-in devices only when their user is authorized through that organization. Publication does not grant every organization member every project, workspace, or capability, and environment presence does not weaken server-side authorization.
+An environment published to an organization can be discovered by other signed-in devices only when
+their user is authorized through that organization. `workspace_bindings` explicitly maps one
+project to one advertised environment-owned directory. Operation creation and dispatch require
+that binding even though the environment is eligible for every project. Environment presence does
+not weaken server-side authorization.
 
-After publication, the node starts a loopback-only origin and requests its per-environment managed
+After publication, the same process starts a loopback-only origin and requests its per-environment managed
 tunnel using a current credential and fresh key proof. The public hostname is discovered from Glass
 Cloud; clients do not enter it. Signing in on another device makes the published environment
 discoverable but does not publish or pair that second device.
@@ -66,6 +73,7 @@ discoverable but does not publish or pair that second device.
 - Durable environment schema and audit records: `apps/api/src/db/schema.ts`
 - Publishing routes: `apps/api/src/index.ts`
 - Node-held identity and pairing client: `apps/execution-node/src/identity.ts`
-- Web approval and environment management: `apps/web/src/product-cloud/EnvironmentPanel.tsx`
+- Web approval and environment management: `apps/web/src/product-cloud/EnvironmentSettings.tsx`, `apps/web/src/product-cloud/EnvironmentDirectory.tsx`
+- Native mobile environment management: `apps/mobile/src/screens/EnvironmentsScreen.tsx`
 - Managed tunnel lifecycle: `apps/api/src/tunnel-service.ts`, `infra/cloud/alchemy.run.ts`
 - Loopback node origin and connector: `apps/execution-node/src/tunnel-origin.ts`, `apps/execution-node/src/cloudflared.ts`

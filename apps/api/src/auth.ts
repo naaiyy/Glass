@@ -150,7 +150,7 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bi
     const auth = betterAuth({
       baseURL: {
         allowedHosts: [...config.allowedHosts],
-        protocol: "https",
+        protocol: config.protocol,
       },
       secret: config.secret,
       trustedOrigins: [...config.trustedOrigins],
@@ -178,7 +178,7 @@ export const createGlassAuthRuntime: GlassAuthRuntimeFactory = async (config, bi
       // Better Auth's Electron 1.6 proxy performs a public HTTP fetch back into its own origin.
       // Cloudflare Workers cannot recursively fetch the same Worker, so dispatch that one
       // equivalent social-sign-in request directly through the authenticated handler.
-      handle: createGlassAuthHandler(auth.handler, config.stage === "dev"),
+      handle: createGlassAuthHandler(auth.handler, config.stage === "local"),
       getSession: (headers) => auth.api.getSession({ headers }),
       product: createPostgresProductService(client),
       environment: createPostgresEnvironmentService(client),

@@ -130,15 +130,6 @@ export const approveEnvironmentPairing = (
     organizationId,
     pairingCode,
   });
-export const approveEnvironmentRotation = (
-  apiBaseUrl: string,
-  organizationId: OrganizationId,
-  rotationCode: string,
-) =>
-  request(apiBaseUrl, "/v1/environment-rotations/approve", "POST", {
-    organizationId,
-    rotationCode,
-  });
 export const revokeEnvironment = (apiBaseUrl: string, environmentId: ExecutionEnvironmentId) =>
   decoded(
     request(apiBaseUrl, `/v1/environments/${environmentId}`, "DELETE"),
