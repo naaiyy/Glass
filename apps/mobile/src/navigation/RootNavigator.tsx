@@ -58,7 +58,11 @@ export const RootNavigator = () => {
             />
             <Stack.Screen component={ThreadScreen} name="Thread" />
             <Stack.Screen component={ArtifactScreen} name="Artifact" />
-            <Stack.Screen component={NoteScreen} name="Note" />
+            <Stack.Screen
+              component={NoteScreen}
+              name="Note"
+              options={{ headerBackButtonMenuEnabled: false, headerTransparent: true }}
+            />
           </Stack.Group>
         )}
       </Stack.Navigator>

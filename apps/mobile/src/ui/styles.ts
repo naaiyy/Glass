@@ -62,18 +62,7 @@ export const styles = StyleSheet.create({
   muted: { color: "#a1a1aa", fontSize: 14, lineHeight: 21, marginTop: 4 },
   navigation: { backgroundColor: "#18181b" },
   noteEditor: { flex: 1 },
-  noteScreen: { backgroundColor: "#f8faf9", flex: 1 },
   noteState: { alignItems: "center", flex: 1, justifyContent: "center", padding: 24 },
-  noteStatusRow: {
-    alignItems: "center",
-    borderBottomColor: "#dce4e0",
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 52,
-    paddingHorizontal: 16,
-  },
-  noteTitle: { color: "#18201d", flex: 1, fontSize: 17, fontWeight: "700", marginRight: 12 },
   screen: { backgroundColor: "#18181b", flexGrow: 1, padding: 24, paddingBottom: 64 },
   sectionTitle: { color: "#fafafa", fontSize: 20, fontWeight: "700", marginTop: 24 },
   stateCard: {

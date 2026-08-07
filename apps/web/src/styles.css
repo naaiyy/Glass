@@ -443,55 +443,18 @@ a {
   opacity: 0.55;
 }
 
-.note-workspace {
-  margin-top: 24px;
-  overflow: hidden;
-  border: 1px solid #34373d;
-  border-radius: 18px;
-  background: #f8faf9;
-  color: #18201d;
-}
-
-.note-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 18px;
-  padding: 18px 22px;
-  border-bottom: 1px solid #dce4e0;
-}
-
-.note-header h2 {
-  margin: 0;
-}
-
-.note-back,
-.note-save-state button {
-  border: 1px solid #cbd7d1;
-  border-radius: 9px;
-  padding: 8px 11px;
-  color: #1b2b25;
-  background: #edf3f0;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.note-save-state {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #617169;
-  font-size: 0.82rem;
-}
-
-.note-save-state-error {
-  color: #9b3028;
+.note-editor-surface {
+  min-height: calc(100dvh - 5rem);
+  background: var(--background);
+  color: var(--foreground);
 }
 
 .note-editor-content {
-  min-height: 520px;
-  padding: clamp(24px, 5vw, 64px);
+  width: 100%;
+  max-width: 52rem;
+  min-height: calc(100dvh - 5rem);
+  margin-inline: auto;
+  padding: clamp(1.5rem, 5vw, 4rem);
 }
 
 .entity-card strong {
@@ -663,17 +626,8 @@ a {
     min-height: 44px;
   }
 
-  .note-header {
-    grid-template-columns: 1fr auto;
-  }
-
-  .note-header > div:first-of-type {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  .note-back {
-    grid-row: 2;
+  .note-editor-content {
+    padding-inline: 0.75rem;
   }
 }
 

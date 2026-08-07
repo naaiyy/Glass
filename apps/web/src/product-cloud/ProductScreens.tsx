@@ -16,6 +16,7 @@ import { EnvironmentPanel } from "./EnvironmentPanel.tsx";
 import { OrganizationDirectory } from "./OrganizationDirectory.tsx";
 import { useProductCloud } from "./ProductCloudProvider.tsx";
 import { resolveWebProductDestination } from "./routing.ts";
+import { WorkspaceHeaderContent, WorkspaceHeaderTargetProvider } from "./WorkspaceHeader.tsx";
 
 const NoteEditor = lazy(() =>
   import("./NoteEditor.tsx").then((module) => ({ default: module.NoteEditor })),
@@ -220,14 +221,17 @@ export const AuthProductScreen = () => {
 export const WorkspaceProductLayout = () => {
   const { signOut, view } = useProductCloud();
   const [error, setError] = useState<string | null>(null);
+  const [headerTarget, setHeaderTarget] = useState<HTMLDivElement | null>(null);
   if (view.status === "checking-session") {
     return <CenteredLoadingState label="Opening your workspace…" />;
   }
   if (!("userId" in view)) return null;
   return (
-    <>
-      <nav className="flex items-center justify-end gap-2 py-3">
+    <WorkspaceHeaderTargetProvider target={headerTarget}>
+      <nav className="sticky top-0 z-50 flex min-h-12 items-center gap-2 bg-background/95 py-2 backdrop-blur-sm">
+        <div className="flex min-w-0 flex-1 items-center gap-2" ref={setHeaderTarget} />
         <Button
+          className="shrink-0"
           onClick={() => {
             setError(null);
             void signOut().catch((cause: unknown) =>
@@ -249,7 +253,7 @@ export const WorkspaceProductLayout = () => {
       <ErrorState />
       <OutboxAttention />
       <Outlet />
-    </>
+    </WorkspaceHeaderTargetProvider>
   );
 };
 
@@ -394,114 +398,126 @@ export const ProjectProductScreen = () => {
   };
 
   return (
-    <section className="mt-8 flex flex-col gap-4" aria-label={`Project: ${project.name}`}>
-      <div>
+    <>
+      <WorkspaceHeaderContent>
         <Link className={buttonVariants({ variant: "ghost", size: "sm" })} to="/workspace">
           Back to projects
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{project.name}</h1>
-      </div>
-      {error === null ? null : (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      <Card>
-        <CardHeader>
-          <CardTitle>Threads</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <form className="flex gap-2" onSubmit={(event) => void submitThread(event)}>
-            <Input
-              aria-label="Thread title"
-              disabled={creating !== null}
-              maxLength={240}
-              onChange={(event) => setThreadTitle(event.target.value)}
-              placeholder="Thread title (optional)"
-              value={threadTitle}
-            />
-            <Button disabled={creating !== null} type="submit">
-              {creating === "thread" ? "Creating…" : "New thread"}
-            </Button>
-          </form>
-          {threads.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">No threads yet.</p>
-          ) : null}
-          {threads.map((thread) => (
-            <Link
-              className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start px-3 py-2")}
-              key={thread.id}
-              params={{ threadId: thread.id }}
-              to="/workspace/threads/$threadId"
-            >
-              <span className="flex flex-col gap-0.5 text-left">
-                <strong>{thread.title ?? "Untitled thread"}</strong>
-                <span className="font-normal text-muted-foreground">
-                  {summaryLabel(
-                    snapshot.messages.filter((message) => message.threadId === thread.id).length,
-                    "message",
-                  )}
+        <span aria-hidden="true" className="h-4 w-px bg-border" />
+        <h1 className="truncate text-sm font-semibold">{project.name}</h1>
+      </WorkspaceHeaderContent>
+      <section className="mt-6 flex flex-col gap-4" aria-label={`Project: ${project.name}`}>
+        {error === null ? null : (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Threads</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <form className="flex gap-2" onSubmit={(event) => void submitThread(event)}>
+              <Input
+                aria-label="Thread title"
+                disabled={creating !== null}
+                maxLength={240}
+                onChange={(event) => setThreadTitle(event.target.value)}
+                placeholder="Thread title (optional)"
+                value={threadTitle}
+              />
+              <Button disabled={creating !== null} type="submit">
+                {creating === "thread" ? "Creating…" : "New thread"}
+              </Button>
+            </form>
+            {threads.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No threads yet.</p>
+            ) : null}
+            {threads.map((thread) => (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-auto justify-start px-3 py-2",
+                )}
+                key={thread.id}
+                params={{ threadId: thread.id }}
+                to="/workspace/threads/$threadId"
+              >
+                <span className="flex flex-col gap-0.5 text-left">
+                  <strong>{thread.title ?? "Untitled thread"}</strong>
+                  <span className="font-normal text-muted-foreground">
+                    {summaryLabel(
+                      snapshot.messages.filter((message) => message.threadId === thread.id).length,
+                      "message",
+                    )}
+                  </span>
                 </span>
-              </span>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Notes</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <form className="flex gap-2" onSubmit={(event) => void submitNote(event)}>
-            <Input
-              aria-label="Note name"
-              disabled={creating !== null}
-              maxLength={240}
-              onChange={(event) => setNoteName(event.target.value)}
-              placeholder="New note name"
-              value={noteName}
-            />
-            <Button disabled={creating !== null} type="submit">
-              {creating === "note" ? "Creating…" : "New note"}
-            </Button>
-          </form>
-          {notes.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">No notes yet.</p>
-          ) : null}
-          {notes.map((note) => (
-            <Link
-              className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start px-3 py-2")}
-              key={note.id}
-              params={{ noteId: note.id }}
-              to="/workspace/notes/$noteId"
-            >
-              <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Artifacts</CardTitle>
-          <CardDescription>Agent work in this project produces artifacts here.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {artifacts.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">No artifacts yet.</p>
-          ) : null}
-          {artifacts.map((artifact) => (
-            <Link
-              className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start px-3 py-2")}
-              key={artifact.id}
-              params={{ artifactId: artifact.id }}
-              to="/workspace/artifacts/$artifactId"
-            >
-              <strong>{artifact.name}</strong>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-    </section>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <form className="flex gap-2" onSubmit={(event) => void submitNote(event)}>
+              <Input
+                aria-label="Note name"
+                disabled={creating !== null}
+                maxLength={240}
+                onChange={(event) => setNoteName(event.target.value)}
+                placeholder="New note name"
+                value={noteName}
+              />
+              <Button disabled={creating !== null} type="submit">
+                {creating === "note" ? "Creating…" : "New note"}
+              </Button>
+            </form>
+            {notes.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No notes yet.</p>
+            ) : null}
+            {notes.map((note) => (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-auto justify-start px-3 py-2",
+                )}
+                key={note.id}
+                params={{ noteId: note.id }}
+                to="/workspace/notes/$noteId"
+              >
+                <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Artifacts</CardTitle>
+            <CardDescription>Agent work in this project produces artifacts here.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {artifacts.length === 0 ? (
+              <p className="py-3 text-sm text-muted-foreground">No artifacts yet.</p>
+            ) : null}
+            {artifacts.map((artifact) => (
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-auto justify-start px-3 py-2",
+                )}
+                key={artifact.id}
+                params={{ artifactId: artifact.id }}
+                to="/workspace/artifacts/$artifactId"
+              >
+                <strong>{artifact.name}</strong>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+    </>
   );
 };
 
