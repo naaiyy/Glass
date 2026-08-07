@@ -38,12 +38,7 @@ export const AuthenticationScreen = ({ onSignedIn }: { onSignedIn: () => void })
       <div className="auth-mark" aria-hidden="true">
         G
       </div>
-      <p className="auth-kicker">GLASS CLOUD</p>
       <h2 id="auth-title">Welcome to Glass</h2>
-      <p className="auth-copy">
-        Sign in to open your organizations, conversations, notes, and artifacts. Your product data
-        stays in Glass Cloud even when no execution environment is connected.
-      </p>
       <button className="github-sign-in" disabled={pending} onClick={begin} type="button">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path
@@ -58,9 +53,6 @@ export const AuthenticationScreen = ({ onSignedIn }: { onSignedIn: () => void })
           {error}
         </p>
       )}
-      <p className="auth-footnote">
-        GitHub verifies your identity. Execution access remains separate and optional.
-      </p>
     </section>
   );
 };

@@ -1,8 +1,9 @@
 import { FoundationShell } from "@glass/ui-web/foundation-shell";
+import { createHashHistory, createBrowserHistory, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { continueDesktopAuthentication } from "./auth-client.ts";
-import { ProductCore } from "./product-cloud/ProductCore.tsx";
+import { getRouter } from "./router.ts";
 import "@openeditor/ui/styles.css";
 import "./styles.css";
 
@@ -12,14 +13,15 @@ if (root === null) {
   throw new Error("Glass renderer root is missing");
 }
 
-const surface = window.glassDesktop === undefined ? "web" : "desktop";
-
 continueDesktopAuthentication();
+
+const history = window.glassDesktop === undefined ? createBrowserHistory() : createHashHistory();
+const router = getRouter(history);
 
 createRoot(root).render(
   <StrictMode>
-    <FoundationShell surface={surface}>
-      <ProductCore />
+    <FoundationShell>
+      <RouterProvider router={router} />
     </FoundationShell>
   </StrictMode>,
 );

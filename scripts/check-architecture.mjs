@@ -219,6 +219,63 @@ assert.doesNotMatch(
   "mobile must use React Navigation, not Expo Router",
 );
 
+const mobileAppRoot = read("apps/mobile/src/App.tsx");
+assert.ok(
+  mobileAppRoot.trim().split("\n").length <= 20,
+  "the mobile App module must remain a composition root instead of accumulating features",
+);
+assert.match(mobileAppRoot, /ProductCloudProvider/u);
+assert.match(mobileAppRoot, /RootNavigator/u);
+assert.doesNotMatch(
+  mobileAppRoot,
+  /(?:client-runtime|\.\/cloud\/|react-native|react-navigation|OpenEditor)/u,
+  "the mobile composition root must not own transport, screens, or platform behavior",
+);
+
+const mobileNavigationSource = sourceText("apps/mobile/src/navigation");
+assert.doesNotMatch(
+  mobileNavigationSource,
+  /(?:client-runtime|\.\.\/cloud\/|\.\.\/execution\/|OpenEditor)/u,
+  "mobile navigation must not own product, execution, or editor runtimes",
+);
+assert.doesNotMatch(
+  read("apps/mobile/src/navigation/routes.ts"),
+  /organizationId/u,
+  "mobile routes must not expose opening an organization by ID",
+);
+
+const mobileProductCloud = read("apps/mobile/src/product-cloud/ProductCloudProvider.tsx");
+for (const requiredRuntime of [
+  "createOutboxEngine",
+  "createSyncEngine",
+  "ProductCloudStateContext",
+]) {
+  assert.match(
+    mobileProductCloud,
+    new RegExp(`\\b${requiredRuntime}\\b`, "u"),
+    `the persistent mobile product-cloud provider must own ${requiredRuntime}`,
+  );
+}
+assert.doesNotMatch(
+  mobileProductCloud,
+  /@react-navigation/u,
+  "the mobile product-cloud runtime must not depend on navigation",
+);
+
+const mobileScreenSource = sourceText("apps/mobile/src/screens");
+assert.doesNotMatch(
+  mobileScreenSource,
+  /(?:createOutboxEngine|createSyncEngine|GlassConnectClient)/u,
+  "mobile route screens must consume feature runtimes instead of constructing them",
+);
+
+const mobileExecutionSource = sourceText("apps/mobile/src/execution");
+assert.doesNotMatch(
+  mobileExecutionSource,
+  /(?:createOutboxEngine|createSyncEngine|loadProductSnapshot)/u,
+  "mobile execution features must not own cloud product synchronization",
+);
+
 const contractsManifest = readJson("packages/contracts/package.json");
 assert.ok(
   dependencyNames(contractsManifest).has("@openeditor/core"),

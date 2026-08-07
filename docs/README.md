@@ -22,6 +22,7 @@ For maintainers and contributors:
 - [Product cloud](internals/product-cloud.md)
 - [Durable product core](internals/durable-product-core.md)
 - [Product synchronization and outbox](internals/synchronization.md)
+- [Client routing](internals/client-routing.md)
 - [OpenEditor integration](internals/openeditor.md)
 - [Execution environments](internals/execution-environments.md)
 - [Connection runtime](internals/connection-runtime.md)

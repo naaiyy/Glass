@@ -31,6 +31,7 @@ export default defineConfig({
       "*.tsbuildinfo",
       "apps/mobile/android/**",
       "apps/mobile/ios/**",
+      "apps/web/src/routeTree.gen.ts",
     ],
     sortPackageJson: {},
   },
@@ -44,6 +45,7 @@ export default defineConfig({
       "*.tsbuildinfo",
       "apps/mobile/android/**",
       "apps/mobile/ios/**",
+      "apps/web/src/routeTree.gen.ts",
     ],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
     categories: {

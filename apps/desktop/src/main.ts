@@ -174,9 +174,9 @@ const run = async (): Promise<void> => {
     );
     const rendererContentAvailable = await initialWindow.webContents.executeJavaScript(`
       new Promise((resolve) => {
-        const hasContent = () => document.body.textContent?.includes(
-          "Your product stays available when execution disconnects.",
-        ) === true;
+        const hasContent = () =>
+          document.body.textContent?.includes("Checking the Glass Cloud session") === true ||
+          document.body.textContent?.includes("Continue with GitHub") === true;
         if (hasContent()) {
           resolve(true);
           return;
