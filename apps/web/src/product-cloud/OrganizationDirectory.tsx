@@ -1,12 +1,10 @@
 import type { OrganizationId, UserId } from "@glass/contracts/ids";
 import type { OrganizationMembershipItem } from "@glass/contracts/organizations";
-import { Refresh01Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
@@ -68,22 +66,19 @@ export const OrganizationDirectory = ({
   );
 
   useEffect(() => {
-    let active = true;
-    void transport
-      .listOrganizations(userId, { after: null, limit: 50 })
-      .then((page) => {
-        if (!active) return;
-        setItems(page.items);
-        setNextCursor(page.nextCursor);
-        setLoaded(true);
-      })
-      .catch((cause: unknown) => {
-        if (active) setError(errorMessage(cause));
-      });
-    return () => {
-      active = false;
+    void load(null);
+    const refreshWhenCurrent = () => {
+      if (document.visibilityState === "visible") void load(null);
     };
-  }, [transport, userId]);
+    window.addEventListener("focus", refreshWhenCurrent);
+    window.addEventListener("online", refreshWhenCurrent);
+    document.addEventListener("visibilitychange", refreshWhenCurrent);
+    return () => {
+      window.removeEventListener("focus", refreshWhenCurrent);
+      window.removeEventListener("online", refreshWhenCurrent);
+      document.removeEventListener("visibilitychange", refreshWhenCurrent);
+    };
+  }, [load]);
 
   const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -96,6 +91,7 @@ export const OrganizationDirectory = ({
     setError(null);
     try {
       await onBootstrap(trimmed);
+      await load(null);
       setName("");
     } catch (cause) {
       setError(errorMessage(cause));
@@ -108,16 +104,6 @@ export const OrganizationDirectory = ({
     <Card className="mt-8" aria-label="Organizations">
       <CardHeader>
         <CardTitle>Organizations</CardTitle>
-        <CardAction>
-          <Button disabled={loading} onClick={() => void load(null)} size="sm" variant="outline">
-            {loading ? (
-              <Spinner />
-            ) : (
-              <HugeiconsIcon icon={Refresh01Icon} data-icon="inline-start" strokeWidth={2} />
-            )}
-            Refresh
-          </Button>
-        </CardAction>
       </CardHeader>
       <CardContent className="grid gap-5">
         {!loaded && error === null ? (

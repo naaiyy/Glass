@@ -1,8 +1,6 @@
-import type { ProjectId } from "@glass/contracts/ids";
-import type { NoteArtifact } from "@glass/contracts/product";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { ExecutionCard } from "../execution/ExecutionCard.tsx";
@@ -17,13 +15,9 @@ import {
   StateCard,
 } from "../ui/primitives.tsx";
 
-const summaryLabel = (count: number, noun: string): string =>
-  `${count} ${noun}${count === 1 ? "" : "s"}`;
-
 export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack, "Workspace">) => {
   const {
     bootstrapOrganization,
-    createNote,
     createProject,
     discardOutboxItem,
     loadMoreOrganizations,
@@ -40,22 +34,12 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
   const [organizationName, setOrganizationName] = useState("");
   const [creatingOrganization, setCreatingOrganization] = useState(false);
   const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
-  const [noteName, setNoteName] = useState("");
-  const [noteProjectId, setNoteProjectId] = useState<ProjectId | null>(null);
-  const [creatingNote, setCreatingNote] = useState(false);
   const attention = outbox.filter((item) => item.status === "needs-attention");
   const pending = outbox.length - attention.length;
   const snapshot = view.snapshot;
   const authenticatedUserId = view.authenticatedUserId;
-
-  useEffect(() => {
-    if (snapshot?.projects.some((project) => project.id === noteProjectId) !== true) {
-      setNoteProjectId(snapshot?.projects[0]?.id ?? null);
-    }
-  }, [noteProjectId, snapshot?.projects]);
 
   const runCloudAction = (action: Promise<void>) => {
     void action.catch((error: unknown) => setInputError(errorMessage(error)));
@@ -201,13 +185,6 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
               placeholder="New project name"
               value={projectName}
             />
-            <AppInput
-              autoCorrect={false}
-              maxLength={4000}
-              onChangeText={setProjectDescription}
-              placeholder="Description (optional)"
-              value={projectDescription}
-            />
             <ActionButton
               disabled={creating}
               label={creating ? "Creating…" : "Create project"}
@@ -219,10 +196,10 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
                 }
                 setCreating(true);
                 setInputError(null);
-                void createProject(name, projectDescription.trim() || null)
-                  .then(() => {
+                void createProject(name)
+                  .then((projectId) => {
                     setProjectName("");
-                    setProjectDescription("");
+                    navigation.navigate("Project", { projectId });
                   })
                   .catch((error: unknown) => setInputError(errorMessage(error)))
                   .finally(() => setCreating(false));
@@ -239,121 +216,8 @@ export const WorkspaceScreen = ({ navigation }: NativeStackScreenProps<RootStack
                 className="mt-2 rounded-lg px-3 py-2 active:bg-muted"
               >
                 <Text className="text-base font-semibold text-card-foreground">{project.name}</Text>
-                <Text className="mt-0.5 text-sm text-muted-foreground" numberOfLines={1}>
-                  {project.description ?? "No description"}
-                </Text>
               </Pressable>
             ))}
-          </StateCard>
-
-          <StateCard title="Threads">
-            {snapshot.threads.length === 0 ? (
-              <Text className="py-2 text-sm text-muted-foreground">No threads yet.</Text>
-            ) : null}
-            {snapshot.threads.map((thread) => (
-              <Pressable
-                accessibilityRole="button"
-                className="mt-2 rounded-lg px-3 py-2 active:bg-muted"
-                key={thread.id}
-                onPress={() => navigation.navigate("Thread", { threadId: thread.id })}
-              >
-                <Text className="text-base font-semibold text-card-foreground">
-                  {thread.title ?? "Untitled thread"}
-                </Text>
-                <Text className="mt-0.5 text-sm text-muted-foreground">
-                  {summaryLabel(
-                    snapshot.messages.filter((message) => message.threadId === thread.id).length,
-                    "message",
-                  )}
-                </Text>
-              </Pressable>
-            ))}
-          </StateCard>
-
-          <StateCard title="Artifacts">
-            {snapshot.artifacts.every((artifact) => artifact.kind !== "agent-output") ? (
-              <Text className="py-2 text-sm text-muted-foreground">No artifacts yet.</Text>
-            ) : null}
-            {snapshot.artifacts
-              .filter((artifact) => artifact.kind === "agent-output")
-              .map((artifact) => (
-                <Pressable
-                  accessibilityRole="button"
-                  className="mt-2 rounded-lg px-3 py-2 active:bg-muted"
-                  key={artifact.id}
-                  onPress={() => navigation.navigate("Artifact", { artifactId: artifact.id })}
-                >
-                  <Text className="text-base font-semibold text-card-foreground">
-                    {artifact.name}
-                  </Text>
-                  <Text className="mt-0.5 text-sm text-muted-foreground">{artifact.kind}</Text>
-                </Pressable>
-              ))}
-          </StateCard>
-
-          <StateCard title="Notes">
-            <SelectMenu
-              disabled={snapshot.projects.length === 0}
-              label="Project"
-              onSelect={setNoteProjectId}
-              options={snapshot.projects.map((project) => ({
-                label: project.name,
-                value: project.id,
-              }))}
-              placeholder="Choose a project"
-              value={noteProjectId}
-            />
-            <AppInput
-              autoCorrect={false}
-              editable={!creatingNote && noteProjectId !== null}
-              maxLength={240}
-              onChangeText={setNoteName}
-              placeholder="New note name"
-              value={noteName}
-            />
-            <ActionButton
-              disabled={creatingNote || noteProjectId === null}
-              label={creatingNote ? "Creating…" : "Create note"}
-              onPress={() => {
-                const name = noteName.trim();
-                if (noteProjectId === null || name.length === 0) {
-                  setInputError("Choose a project and enter a note name.");
-                  return;
-                }
-                setCreatingNote(true);
-                setInputError(null);
-                void createNote(noteProjectId, name)
-                  .then((noteId) => {
-                    setNoteName("");
-                    navigation.navigate("Note", { noteId });
-                  })
-                  .catch((error: unknown) => setInputError(errorMessage(error)))
-                  .finally(() => setCreatingNote(false));
-              }}
-            />
-            {snapshot.artifacts.every(
-              (artifact) => artifact.kind !== "note" || artifact.projectId !== noteProjectId,
-            ) ? (
-              <Text className="py-2 text-sm text-muted-foreground">No notes yet.</Text>
-            ) : null}
-            {snapshot.artifacts
-              .filter(
-                (artifact): artifact is NoteArtifact =>
-                  artifact.kind === "note" && artifact.projectId === noteProjectId,
-              )
-              .map((note) => (
-                <Pressable
-                  accessibilityRole="button"
-                  className="mt-2 rounded-lg px-3 py-2 active:bg-muted"
-                  key={note.id}
-                  onPress={() => navigation.navigate("Note", { noteId: note.id })}
-                >
-                  <Text className="text-base font-semibold text-card-foreground">
-                    {note.icon === null ? note.name : `${note.icon} ${note.name}`}
-                  </Text>
-                  <Text className="mt-0.5 text-sm text-muted-foreground">Open note</Text>
-                </Pressable>
-              ))}
           </StateCard>
         </>
       )}

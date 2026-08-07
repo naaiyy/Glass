@@ -9,8 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
 import { Spinner } from "~/components/ui/spinner";
 import { cn } from "~/lib/utils";
 import { AuthenticationScreen } from "../AuthenticationScreen.tsx";
@@ -34,54 +32,15 @@ const CenteredLoadingState = ({ label }: Readonly<{ label: string }>) => (
 );
 
 const SnapshotSummary = ({
-  onCreateNote,
   onCreateProject,
   snapshot,
 }: Readonly<{
-  onCreateNote: (projectId: ProjectId, name: string) => Promise<void>;
-  onCreateProject: (name: string, description: string | null) => Promise<void>;
+  onCreateProject: (name: string) => Promise<void>;
   snapshot: ProductSnapshot;
 }>) => {
-  const [noteName, setNoteName] = useState("");
-  const [noteProjectId, setNoteProjectId] = useState<ProjectId | "">(
-    snapshot.projects[0]?.id ?? "",
-  );
   const [createError, setCreateError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
-  const visibleNotes = snapshot.artifacts.filter(
-    (artifact): artifact is NoteArtifact =>
-      artifact.kind === "note" && artifact.projectId === noteProjectId,
-  );
-
-  useEffect(() => {
-    if (!snapshot.projects.some((project) => project.id === noteProjectId)) {
-      setNoteProjectId(snapshot.projects[0]?.id ?? "");
-    }
-  }, [noteProjectId, snapshot.projects]);
-
-  const submitNote = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const name = noteName.trim();
-    if (noteProjectId === "" || name.length === 0) {
-      setCreateError("Choose a project and enter a note name.");
-      return;
-    }
-    setCreating(true);
-    setCreateError(null);
-    try {
-      await onCreateNote(noteProjectId, name);
-      setNoteName("");
-    } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : "Glass Cloud could not create the note.",
-      );
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const submitProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -93,9 +52,8 @@ const SnapshotSummary = ({
     setCreatingProject(true);
     setCreateError(null);
     try {
-      await onCreateProject(name, projectDescription.trim() || null);
+      await onCreateProject(name);
       setProjectName("");
-      setProjectDescription("");
     } catch (error) {
       setCreateError(
         error instanceof Error ? error.message : "Glass Cloud could not create the project.",
@@ -126,14 +84,6 @@ const SnapshotSummary = ({
                 placeholder="New project name"
                 value={projectName}
               />
-              <Input
-                aria-label="Project description"
-                disabled={creatingProject}
-                maxLength={4000}
-                onChange={(event) => setProjectDescription(event.target.value)}
-                placeholder="Description (optional)"
-                value={projectDescription}
-              />
               <Button disabled={creatingProject} type="submit">
                 {creatingProject ? (
                   <>
@@ -158,137 +108,14 @@ const SnapshotSummary = ({
                 params={{ projectId: project.id }}
                 to="/workspace/projects/$projectId"
               >
-                <span className="flex min-w-0 flex-col gap-0.5 text-left">
-                  <strong className="truncate">{project.name}</strong>
-                  <span className="truncate font-normal text-muted-foreground">
-                    {project.description ?? "No description"}
-                  </span>
-                </span>
+                <strong className="truncate">{project.name}</strong>
               </Link>
             ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Threads</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {snapshot.threads.length === 0 ? (
-              <p className="py-3 text-sm text-muted-foreground">No threads yet.</p>
-            ) : null}
-            {snapshot.threads.map((thread) => (
-              <Link
-                className={cn(
-                  buttonVariants({ variant: "ghost" }),
-                  "h-auto justify-start px-3 py-2",
-                )}
-                key={thread.id}
-                params={{ threadId: thread.id }}
-                to="/workspace/threads/$threadId"
-              >
-                <span className="flex flex-col gap-0.5 text-left">
-                  <strong>{thread.title ?? "Untitled thread"}</strong>
-                  <span className="font-normal text-muted-foreground">
-                    {summaryLabel(
-                      snapshot.messages.filter((message) => message.threadId === thread.id).length,
-                      "message",
-                    )}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Artifacts</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {snapshot.artifacts.every((artifact) => artifact.kind !== "agent-output") ? (
-              <p className="py-3 text-sm text-muted-foreground">No artifacts yet.</p>
-            ) : null}
-            {snapshot.artifacts
-              .filter((artifact) => artifact.kind === "agent-output")
-              .map((artifact) => (
-                <Link
-                  className={cn(
-                    buttonVariants({ variant: "ghost" }),
-                    "h-auto justify-start px-3 py-2",
-                  )}
-                  key={artifact.id}
-                  params={{ artifactId: artifact.id }}
-                  to="/workspace/artifacts/$artifactId"
-                >
-                  <span className="flex flex-col gap-0.5 text-left">
-                    <strong>{artifact.name}</strong>
-                    <span className="font-normal text-muted-foreground">{artifact.kind}</span>
-                  </span>
-                </Link>
-              ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <form className="flex flex-col gap-2" onSubmit={(event) => void submitNote(event)}>
-              <Label htmlFor="note-project">Project</Label>
-              <NativeSelect
-                disabled={creating || snapshot.projects.length === 0}
-                id="note-project"
-                onChange={(event) => setNoteProjectId(event.target.value as ProjectId)}
-                value={noteProjectId}
-              >
-                {snapshot.projects.map((project) => (
-                  <NativeSelectOption key={project.id} value={project.id}>
-                    {project.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <Input
-                aria-label="Note name"
-                disabled={creating || snapshot.projects.length === 0}
-                maxLength={240}
-                onChange={(event) => setNoteName(event.target.value)}
-                placeholder="New note name"
-                value={noteName}
-              />
-              <Button disabled={creating || snapshot.projects.length === 0} type="submit">
-                {creating ? (
-                  <>
-                    <Spinner />
-                    Creating…
-                  </>
-                ) : (
-                  "Create note"
-                )}
-              </Button>
-              {createError === null ? null : (
-                <Alert variant="destructive">
-                  <AlertDescription>{createError}</AlertDescription>
-                </Alert>
-              )}
-            </form>
-            {visibleNotes.length === 0 ? (
-              <p className="py-3 text-sm text-muted-foreground">No notes yet.</p>
-            ) : null}
-            {visibleNotes.map((note) => (
-              <Link
-                className={cn(
-                  buttonVariants({ variant: "ghost" }),
-                  "h-auto justify-start px-3 py-2",
-                )}
-                key={note.id}
-                params={{ noteId: note.id }}
-                to="/workspace/notes/$noteId"
-              >
-                <span className="flex flex-col gap-0.5 text-left">
-                  <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
-                  <span className="font-normal text-muted-foreground">Open note</span>
-                </span>
-              </Link>
-            ))}
+            {createError === null ? null : (
+              <Alert variant="destructive">
+                <AlertDescription>{createError}</AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -429,7 +256,6 @@ export const WorkspaceProductLayout = () => {
 export const WorkspaceProductScreen = () => {
   const {
     bootstrapOrganization,
-    createNote,
     createProject,
     organizationId,
     selectOrganization,
@@ -451,11 +277,10 @@ export const WorkspaceProductScreen = () => {
       )}
       {snapshot === null ? null : (
         <SnapshotSummary
-          onCreateNote={async (projectId, name) => {
-            const note = await createNote(projectId, name);
-            await navigate({ params: { noteId: note.id }, to: "/workspace/notes/$noteId" });
+          onCreateProject={async (name) => {
+            const projectId = await createProject(name);
+            await navigate({ params: { projectId }, to: "/workspace/projects/$projectId" });
           }}
-          onCreateProject={createProject}
           snapshot={snapshot}
         />
       )}
@@ -500,44 +325,252 @@ export const NoteProductScreen = () => {
         </div>
       }
     >
-      <NoteEditor note={note} onClose={() => void navigate({ to: "/workspace" })} />
+      <NoteEditor
+        note={note}
+        onClose={() =>
+          void navigate({
+            params: { projectId: note.projectId },
+            to: "/workspace/projects/$projectId",
+          })
+        }
+      />
     </Suspense>
   );
 };
 
 export const ProjectProductScreen = () => {
-  const { snapshot } = useProductCloud();
+  const { createNote, createThread, snapshot } = useProductCloud();
+  const navigate = useNavigate();
   const { projectId: rawProjectId } = useParams({ from: "/workspace/projects/$projectId" });
   const projectId = decodeRouteId<ProjectId>(rawProjectId, "$projectId");
   const project = snapshot?.projects.find((candidate) => candidate.id === projectId);
-  if (project === undefined) return <MissingEntity label="Project" />;
+  const [noteName, setNoteName] = useState("");
+  const [threadTitle, setThreadTitle] = useState("");
+  const [creating, setCreating] = useState<"note" | "thread" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  if (snapshot === null || project === undefined) return <MissingEntity label="Project" />;
+  const threads = snapshot.threads.filter((thread) => thread.projectId === project.id);
+  const notes = snapshot.artifacts.filter(
+    (artifact): artifact is NoteArtifact =>
+      artifact.kind === "note" && artifact.projectId === project.id,
+  );
+  const artifacts = snapshot.artifacts.filter(
+    (artifact) => artifact.kind === "agent-output" && artifact.projectId === project.id,
+  );
+
+  const submitNote = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = noteName.trim();
+    if (name.length === 0) {
+      setError("Enter a note name.");
+      return;
+    }
+    setCreating("note");
+    setError(null);
+    try {
+      const note = await createNote(project.id, name);
+      setNoteName("");
+      await navigate({ params: { noteId: note.id }, to: "/workspace/notes/$noteId" });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Glass Cloud could not create the note.");
+    } finally {
+      setCreating(null);
+    }
+  };
+
+  const submitThread = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreating("thread");
+    setError(null);
+    try {
+      const threadId = await createThread(project.id, threadTitle.trim() || null);
+      setThreadTitle("");
+      await navigate({ params: { threadId }, to: "/workspace/threads/$threadId" });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Glass Cloud could not create the thread.");
+    } finally {
+      setCreating(null);
+    }
+  };
+
   return (
-    <Card className="mt-8">
-      <CardHeader>
-        <CardTitle>{project.name}</CardTitle>
-        <CardDescription>{project.description ?? "No description"}</CardDescription>
-      </CardHeader>
-    </Card>
+    <section className="mt-8 flex flex-col gap-4" aria-label={`Project: ${project.name}`}>
+      <div>
+        <Link className={buttonVariants({ variant: "ghost", size: "sm" })} to="/workspace">
+          Back to projects
+        </Link>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{project.name}</h1>
+      </div>
+      {error === null ? null : (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Threads</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <form className="flex gap-2" onSubmit={(event) => void submitThread(event)}>
+            <Input
+              aria-label="Thread title"
+              disabled={creating !== null}
+              maxLength={240}
+              onChange={(event) => setThreadTitle(event.target.value)}
+              placeholder="Thread title (optional)"
+              value={threadTitle}
+            />
+            <Button disabled={creating !== null} type="submit">
+              {creating === "thread" ? "Creating…" : "New thread"}
+            </Button>
+          </form>
+          {threads.length === 0 ? (
+            <p className="py-3 text-sm text-muted-foreground">No threads yet.</p>
+          ) : null}
+          {threads.map((thread) => (
+            <Link
+              className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start px-3 py-2")}
+              key={thread.id}
+              params={{ threadId: thread.id }}
+              to="/workspace/threads/$threadId"
+            >
+              <span className="flex flex-col gap-0.5 text-left">
+                <strong>{thread.title ?? "Untitled thread"}</strong>
+                <span className="font-normal text-muted-foreground">
+                  {summaryLabel(
+                    snapshot.messages.filter((message) => message.threadId === thread.id).length,
+                    "message",
+                  )}
+                </span>
+              </span>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <form className="flex gap-2" onSubmit={(event) => void submitNote(event)}>
+            <Input
+              aria-label="Note name"
+              disabled={creating !== null}
+              maxLength={240}
+              onChange={(event) => setNoteName(event.target.value)}
+              placeholder="New note name"
+              value={noteName}
+            />
+            <Button disabled={creating !== null} type="submit">
+              {creating === "note" ? "Creating…" : "New note"}
+            </Button>
+          </form>
+          {notes.length === 0 ? (
+            <p className="py-3 text-sm text-muted-foreground">No notes yet.</p>
+          ) : null}
+          {notes.map((note) => (
+            <Link
+              className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start px-3 py-2")}
+              key={note.id}
+              params={{ noteId: note.id }}
+              to="/workspace/notes/$noteId"
+            >
+              <strong>{note.icon === null ? note.name : `${note.icon} ${note.name}`}</strong>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Artifacts</CardTitle>
+          <CardDescription>Agent work in this project produces artifacts here.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {artifacts.length === 0 ? (
+            <p className="py-3 text-sm text-muted-foreground">No artifacts yet.</p>
+          ) : null}
+          {artifacts.map((artifact) => (
+            <Link
+              className={cn(buttonVariants({ variant: "ghost" }), "h-auto justify-start px-3 py-2")}
+              key={artifact.id}
+              params={{ artifactId: artifact.id }}
+              to="/workspace/artifacts/$artifactId"
+            >
+              <strong>{artifact.name}</strong>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
   );
 };
 
 export const ThreadProductScreen = () => {
-  const { snapshot } = useProductCloud();
+  const { createMessage, snapshot } = useProductCloud();
   const { threadId: rawThreadId } = useParams({ from: "/workspace/threads/$threadId" });
   const threadId = decodeRouteId<ThreadId>(rawThreadId, "$threadId");
   const thread = snapshot?.threads.find((candidate) => candidate.id === threadId);
-  if (thread === undefined) return <MissingEntity label="Thread" />;
+  const [body, setBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (snapshot === null || thread === undefined) return <MissingEntity label="Thread" />;
+  const messages = snapshot.messages.filter((message) => message.threadId === thread.id);
+  const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const message = body.trim();
+    if (message.length === 0) {
+      setError("Enter a message.");
+      return;
+    }
+    setSending(true);
+    setError(null);
+    try {
+      await createMessage(thread.projectId, thread.id, message);
+      setBody("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Glass Cloud could not send the message.");
+    } finally {
+      setSending(false);
+    }
+  };
   return (
     <Card className="mt-8">
       <CardHeader>
         <CardTitle>{thread.title ?? "Untitled thread"}</CardTitle>
-        <CardDescription>
-          {summaryLabel(
-            snapshot?.messages.filter((message) => message.threadId === thread.id).length ?? 0,
-            "message",
-          )}
-        </CardDescription>
+        <CardDescription>{summaryLabel(messages.length, "message")}</CardDescription>
       </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <Link
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+          params={{ projectId: thread.projectId }}
+          to="/workspace/projects/$projectId"
+        >
+          Back to project
+        </Link>
+        {messages.map((message) => (
+          <article className="rounded-lg border p-3" key={message.id}>
+            <p className="whitespace-pre-wrap text-sm">{message.body}</p>
+          </article>
+        ))}
+        <form className="flex gap-2" onSubmit={(event) => void submitMessage(event)}>
+          <Input
+            aria-label="Message"
+            disabled={sending}
+            maxLength={1_000_000}
+            onChange={(event) => setBody(event.target.value)}
+            placeholder="Write a message"
+            value={body}
+          />
+          <Button disabled={sending} type="submit">
+            {sending ? "Sending…" : "Send"}
+          </Button>
+        </form>
+        {error === null ? null : (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
     </Card>
   );
 };

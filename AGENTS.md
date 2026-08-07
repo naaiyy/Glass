@@ -89,7 +89,7 @@ Glass Cloud may store durable metadata and results about execution. It does not 
 
 ## Locked editor stack and boundary
 
-OpenEditor is a stack decision, like React, Effect, Drizzle, and Better Auth. Use exact, coordinated OpenEditor versions because the packages are pre-1.0. The current integration target is `0.0.34`:
+OpenEditor is a stack decision, like React, Effect, Drizzle, and Better Auth. Use exact, coordinated OpenEditor versions because the packages are pre-1.0. The current integration target is `0.0.35`:
 
 - shared document contract and validation: `@openeditor/core`
 - web and desktop renderer: `@openeditor/react` and `@openeditor/ui`

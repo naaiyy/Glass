@@ -93,7 +93,6 @@ const snapshot: ProductSnapshot = {
   projects: [
     {
       createdAt: timestamp,
-      description: null,
       id: projectId,
       name: "Core",
       organizationId,

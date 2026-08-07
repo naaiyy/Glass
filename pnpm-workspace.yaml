@@ -22,10 +22,10 @@ catalog:
   "@effect/vitest": 4.0.0-beta.102
   "@noble/curves": 1.9.1
   "@noble/hashes": 1.8.0
-  "@openeditor/core": 0.0.34
-  "@openeditor/native": 0.0.34
-  "@openeditor/react": 0.0.34
-  "@openeditor/ui": 0.0.34
+  "@openeditor/core": 0.0.35
+  "@openeditor/native": 0.0.35
+  "@openeditor/react": 0.0.35
+  "@openeditor/ui": 0.0.35
   "@pierre/diffs": 1.3.0-beta.10
   "@tanstack/react-router": 1.170.21
   "@tanstack/router-plugin": 1.168.26

@@ -99,8 +99,8 @@ assert.match(workspaceConfig, /(?:^|\n)\s*-\s*["']?packages\/\*["']?\s*(?:\n|$)/
 for (const packageName of ["core", "native", "react", "ui"]) {
   assert.match(
     workspaceConfig,
-    new RegExp(`["']?@openeditor/${packageName}["']?: 0\\.0\\.34(?:\\n|$)`, "u"),
-    `@openeditor/${packageName} must stay on the coordinated public 0.0.34 release`,
+    new RegExp(`["']?@openeditor/${packageName}["']?: 0\\.0\\.35(?:\\n|$)`, "u"),
+    `@openeditor/${packageName} must stay on the coordinated public 0.0.35 release`,
   );
 }
 assert.doesNotMatch(

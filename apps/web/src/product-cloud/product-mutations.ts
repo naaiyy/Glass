@@ -1,6 +1,13 @@
 import { decodeOutboxEnvelope, type OutboxEnvelope } from "@glass/client-runtime/outbox";
 import type { ProductMutation } from "@glass/contracts/events";
-import type { ArtifactId, CommandId, OrganizationId, ProjectId } from "@glass/contracts/ids";
+import type {
+  ArtifactId,
+  CommandId,
+  MessageId,
+  OrganizationId,
+  ProjectId,
+  ThreadId,
+} from "@glass/contracts/ids";
 import { decodeId } from "@glass/contracts/ids";
 
 type RandomUuid = () => string;
@@ -50,7 +57,7 @@ export const createOrganizationBootstrapEnvelope = (
 };
 
 export const createProjectMutation = (
-  input: Readonly<{ description: string | null; name: string; organizationId: OrganizationId }>,
+  input: Readonly<{ name: string; organizationId: OrganizationId }>,
   randomUuid: RandomUuid = () => crypto.randomUUID(),
 ): Readonly<{ mutation: ProductMutation; projectId: ProjectId }> => {
   const projectId = requiredId<ProjectId>(randomUuid(), "$projectId");
@@ -59,7 +66,6 @@ export const createProjectMutation = (
     mutation: {
       commandId: commandId(randomUuid),
       operation: {
-        description: input.description,
         kind: "project.create",
         name: input.name,
         projectId,
@@ -84,6 +90,52 @@ export const createNoteMutation = (
         kind: "note.create",
         name: input.name,
         projectId: input.projectId,
+      },
+      organizationId: input.organizationId,
+    },
+  };
+};
+
+export const createThreadMutation = (
+  input: Readonly<{ organizationId: OrganizationId; projectId: ProjectId; title: string | null }>,
+  randomUuid: RandomUuid = () => crypto.randomUUID(),
+): Readonly<{ mutation: ProductMutation; threadId: ThreadId }> => {
+  const threadId = requiredId<ThreadId>(randomUuid(), "$threadId");
+  return {
+    threadId,
+    mutation: {
+      commandId: commandId(randomUuid),
+      operation: {
+        kind: "thread.create",
+        projectId: input.projectId,
+        threadId,
+        title: input.title,
+      },
+      organizationId: input.organizationId,
+    },
+  };
+};
+
+export const createMessageMutation = (
+  input: Readonly<{
+    body: string;
+    organizationId: OrganizationId;
+    projectId: ProjectId;
+    threadId: ThreadId;
+  }>,
+  randomUuid: RandomUuid = () => crypto.randomUUID(),
+): Readonly<{ messageId: MessageId; mutation: ProductMutation }> => {
+  const messageId = requiredId<MessageId>(randomUuid(), "$messageId");
+  return {
+    messageId,
+    mutation: {
+      commandId: commandId(randomUuid),
+      operation: {
+        body: input.body,
+        kind: "message.create",
+        messageId,
+        projectId: input.projectId,
+        threadId: input.threadId,
       },
       organizationId: input.organizationId,
     },

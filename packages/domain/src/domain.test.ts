@@ -15,7 +15,6 @@ describe("organization authorization", () => {
       projectId,
       expectedVersion: 1,
       name: "Updated project",
-      description: null,
     } satisfies ProductOperation;
 
     expect(authorizeProductOperation({ actorRole: "member" }, operation)).toEqual({
