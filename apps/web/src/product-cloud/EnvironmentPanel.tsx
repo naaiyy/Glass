@@ -15,6 +15,13 @@ import type {
 } from "@glass/contracts/ids";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
+import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
 import { environmentCloud } from "./environment-cloud.ts";
 import { ExecutionConsole } from "./ExecutionConsole.tsx";
 
@@ -338,216 +345,260 @@ export const EnvironmentPanel = ({
   };
 
   return (
-    <section
-      className="state-panel"
-      aria-label="Glass Connect environments"
-      id="glass-connect-pair"
-    >
-      <h2>Glass Connect</h2>
-      <p>
-        Publish a capable computer from the Glass execution node, then approve its one-time pairing
-        code here. Signing in alone never publishes a device.
-      </p>
-      <form onSubmit={(event) => void approve(event)}>
-        <label htmlFor="pairing-code">Pairing code</label>
-        <div className="connection-code-fields">
-          <input
-            id="pairing-code"
-            autoCapitalize="characters"
-            maxLength={11}
-            placeholder="ABCDE-FGHIJ"
-            value={pairingCode}
-            onChange={(event) => setPairingCode(event.target.value)}
-          />
-          <button disabled={busy || pairingCode.trim().length !== 11} type="submit">
-            Approve publishing
-          </button>
+    <Card aria-label="Glass Connect environments" className="mt-8" id="glass-connect-pair">
+      <CardHeader>
+        <CardTitle>Glass Connect</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <form className="grid gap-2" onSubmit={(event) => void approve(event)}>
+            <Label htmlFor="pairing-code">Pairing code</Label>
+            <div className="flex gap-2">
+              <Input
+                autoCapitalize="characters"
+                className="uppercase"
+                id="pairing-code"
+                maxLength={11}
+                onChange={(event) => setPairingCode(event.target.value)}
+                placeholder="ABCDE-FGHIJ"
+                value={pairingCode}
+              />
+              <Button disabled={busy || pairingCode.trim().length !== 11} type="submit">
+                Approve
+              </Button>
+            </div>
+          </form>
+          <form className="grid gap-2" onSubmit={(event) => void approveRotation(event)}>
+            <Label htmlFor="rotation-code">Key-rotation code</Label>
+            <div className="flex gap-2">
+              <Input
+                autoCapitalize="characters"
+                className="uppercase"
+                id="rotation-code"
+                maxLength={11}
+                onChange={(event) => setRotationCode(event.target.value)}
+                placeholder="ABCDE-FGHIJ"
+                value={rotationCode}
+              />
+              <Button disabled={busy || rotationCode.trim().length !== 11} type="submit">
+                Approve
+              </Button>
+            </div>
+          </form>
         </div>
-      </form>
-      <form onSubmit={(event) => void approveRotation(event)}>
-        <label htmlFor="rotation-code">Environment key-rotation code</label>
-        <div className="connection-code-fields">
-          <input
-            id="rotation-code"
-            autoCapitalize="characters"
-            maxLength={11}
-            placeholder="ABCDE-FGHIJ"
-            value={rotationCode}
-            onChange={(event) => setRotationCode(event.target.value)}
-          />
-          <button disabled={busy || rotationCode.trim().length !== 11} type="submit">
-            Approve key rotation
-          </button>
+
+        <div className="grid max-w-sm gap-2">
+          <Label htmlFor="connect-project">Project authorization</Label>
+          <NativeSelect
+            className="w-full"
+            disabled={projects.length === 0}
+            id="connect-project"
+            onChange={(event) => setProjectId(event.target.value as ProjectId)}
+            value={projectId}
+          >
+            {projects.map((project) => (
+              <NativeSelectOption key={project.id} value={project.id}>
+                {project.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
         </div>
-      </form>
-      <label htmlFor="connect-project">Project authorization</label>
-      <select
-        id="connect-project"
-        value={projectId}
-        onChange={(event) => setProjectId(event.target.value as ProjectId)}
-      >
-        {projects.map((project) => (
-          <option key={project.id} value={project.id}>
-            {project.name}
-          </option>
-        ))}
-      </select>
-      {message === null ? null : <p role="status">{message}</p>}
-      {environments.length === 0 ? (
-        <p>No execution environments are published to this organization.</p>
-      ) : (
-        environments.map((environment) => {
-          const state = presence[environment.id];
-          const environmentBindings = bindings.filter(
-            (binding) =>
-              binding.environmentId === environment.id &&
-              binding.projectId === projectId &&
-              binding.revokedAt === null,
-          );
-          const environmentCatalog = catalog[environment.id] ?? [];
-          return (
-            <article className="entity-card" key={environment.id}>
-              <strong>{environment.displayName}</strong>
-              <span>
-                {environment.platform} ·{" "}
-                {environment.revokedAt === null ? (state?.status ?? "checking") : "revoked"}
-              </span>
-              {environment.revokedAt === null ? (
-                <div>
-                  {environmentBindings.length === 0 ? (
-                    <p>No workspace is bound to this project.</p>
-                  ) : (
-                    <select
-                      aria-label={`Workspace for ${environment.displayName}`}
-                      value={
-                        environmentBindings.some((binding) => binding.id === selectedWorkspaceId)
-                          ? selectedWorkspaceId
-                          : environmentBindings[0]?.id
-                      }
-                      onChange={(event) =>
-                        setSelectedWorkspaceId(event.target.value as WorkspaceId)
-                      }
-                    >
-                      {environmentBindings.map((binding) => (
-                        <option key={binding.id} value={binding.id}>
-                          {binding.displayName}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <button
-                    disabled={busy || state?.status !== "online"}
-                    onClick={() => {
-                      setBusy(true);
-                      void environmentCloud
-                        .catalog(organizationId, environment.id)
-                        .then((items) =>
-                          setCatalog((current) => ({ ...current, [environment.id]: items })),
-                        )
-                        .catch((error: unknown) =>
-                          setMessage(
-                            error instanceof Error
-                              ? error.message
-                              : "The workspace catalog is available only to administrators while the node is online.",
-                          ),
-                        )
-                        .finally(() => setBusy(false));
-                    }}
-                    type="button"
-                  >
-                    Load advertised workspaces
-                  </button>{" "}
-                  {environmentCatalog.length === 0 ? null : (
-                    <>
-                      <select
-                        aria-label={`Advertised workspace for ${environment.displayName}`}
-                        value={selectedWorkspaceId}
-                        onChange={(event) =>
-                          setSelectedWorkspaceId(event.target.value as WorkspaceId)
-                        }
-                      >
-                        <option value="">Choose workspace</option>
-                        {environmentCatalog.map((workspace) => (
-                          <option key={workspace.id} value={workspace.id}>
-                            {workspace.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        disabled={busy || projectId === "" || selectedWorkspaceId === ""}
-                        onClick={() => {
-                          const workspace = environmentCatalog.find(
-                            (item) => item.id === selectedWorkspaceId,
-                          );
-                          if (workspace === undefined || projectId === "") return;
-                          setBusy(true);
-                          void environmentCloud
-                            .bindWorkspace(organizationId, environment.id, projectId, workspace.id)
-                            .then(() => environmentCloud.bindings(organizationId, projectId))
-                            .then(setBindings)
-                            .catch((error: unknown) =>
-                              setMessage(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Workspace binding failed.",
-                              ),
+
+        {message === null ? null : (
+          <Alert role="status">
+            <AlertDescription>{message}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid gap-3">
+          {environments.length === 0 ? (
+            <p className="py-3 text-sm text-muted-foreground">
+              No execution environments are published to this organization.
+            </p>
+          ) : (
+            environments.map((environment) => {
+              const state = presence[environment.id];
+              const status =
+                environment.revokedAt === null ? (state?.status ?? "checking") : "revoked";
+              const environmentBindings = bindings.filter(
+                (binding) =>
+                  binding.environmentId === environment.id &&
+                  binding.projectId === projectId &&
+                  binding.revokedAt === null,
+              );
+              const environmentCatalog = catalog[environment.id] ?? [];
+              return (
+                <Card className="rounded-md" key={environment.id} size="sm">
+                  <CardHeader>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle>{environment.displayName}</CardTitle>
+                      <Badge variant={status === "online" ? "secondary" : "outline"}>
+                        {status}
+                      </Badge>
+                    </div>
+                    <CardDescription>{environment.platform}</CardDescription>
+                  </CardHeader>
+                  {environment.revokedAt === null ? (
+                    <CardContent className="grid gap-3">
+                      {environmentBindings.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No workspace is bound to this project.
+                        </p>
+                      ) : (
+                        <NativeSelect
+                          aria-label={`Workspace for ${environment.displayName}`}
+                          className="w-full max-w-sm"
+                          onChange={(event) =>
+                            setSelectedWorkspaceId(event.target.value as WorkspaceId)
+                          }
+                          value={
+                            environmentBindings.some(
+                              (binding) => binding.id === selectedWorkspaceId,
                             )
-                            .finally(() => setBusy(false));
-                        }}
-                        type="button"
-                      >
-                        Bind to project
-                      </button>
-                    </>
-                  )}{" "}
-                  <button
-                    disabled={busy || state?.status !== "online"}
-                    onClick={() => void connect(environment.id)}
-                    type="button"
-                  >
-                    Connect
-                  </button>{" "}
-                  <button
-                    disabled={busy}
-                    onClick={() => {
-                      setBusy(true);
-                      void environmentCloud
-                        .revoke(environment.id)
-                        .then(() => {
-                          connection.current?.stop();
-                          connectionOnline.current = false;
-                          setExecutionOnline(false);
-                          setConnectedScope(null);
-                          setOperations([]);
-                          trackedOperationIds.current = new Set();
-                          fetchedSequence.current = new Map();
-                          return refresh();
-                        })
-                        .catch((error: unknown) =>
-                          setMessage(error instanceof Error ? error.message : "Revocation failed."),
-                        )
-                        .finally(() => setBusy(false));
-                    }}
-                    type="button"
-                  >
-                    Revoke
-                  </button>
-                </div>
-              ) : null}
-            </article>
-          );
-        })
-      )}
-      {connectedScope === null ? null : (
-        <ExecutionConsole
-          binding={connectedScope.binding}
-          environmentName={connectedScope.environment.displayName}
-          online={executionOnline}
-          onCancel={cancelOperation}
-          onRun={runOperation}
-          operations={operations}
-        />
-      )}
-    </section>
+                              ? selectedWorkspaceId
+                              : environmentBindings[0]?.id
+                          }
+                        >
+                          {environmentBindings.map((binding) => (
+                            <NativeSelectOption key={binding.id} value={binding.id}>
+                              {binding.displayName}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
+                      )}
+
+                      {environmentCatalog.length === 0 ? null : (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <NativeSelect
+                            aria-label={`Advertised workspace for ${environment.displayName}`}
+                            className="w-full sm:max-w-sm"
+                            onChange={(event) =>
+                              setSelectedWorkspaceId(event.target.value as WorkspaceId)
+                            }
+                            value={selectedWorkspaceId}
+                          >
+                            <NativeSelectOption value="">Choose workspace</NativeSelectOption>
+                            {environmentCatalog.map((workspace) => (
+                              <NativeSelectOption key={workspace.id} value={workspace.id}>
+                                {workspace.name}
+                              </NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                          <Button
+                            disabled={busy || projectId === "" || selectedWorkspaceId === ""}
+                            onClick={() => {
+                              const workspace = environmentCatalog.find(
+                                (item) => item.id === selectedWorkspaceId,
+                              );
+                              if (workspace === undefined || projectId === "") return;
+                              setBusy(true);
+                              void environmentCloud
+                                .bindWorkspace(
+                                  organizationId,
+                                  environment.id,
+                                  projectId,
+                                  workspace.id,
+                                )
+                                .then(() => environmentCloud.bindings(organizationId, projectId))
+                                .then(setBindings)
+                                .catch((error: unknown) =>
+                                  setMessage(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Workspace binding failed.",
+                                  ),
+                                )
+                                .finally(() => setBusy(false));
+                            }}
+                            type="button"
+                          >
+                            Bind to project
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          disabled={busy || state?.status !== "online"}
+                          onClick={() => {
+                            setBusy(true);
+                            void environmentCloud
+                              .catalog(organizationId, environment.id)
+                              .then((items) =>
+                                setCatalog((current) => ({
+                                  ...current,
+                                  [environment.id]: items,
+                                })),
+                              )
+                              .catch((error: unknown) =>
+                                setMessage(
+                                  error instanceof Error
+                                    ? error.message
+                                    : "The workspace catalog is available only to administrators while the node is online.",
+                                ),
+                              )
+                              .finally(() => setBusy(false));
+                          }}
+                          type="button"
+                          variant="outline"
+                        >
+                          Load workspaces
+                        </Button>
+                        <Button
+                          disabled={busy || state?.status !== "online"}
+                          onClick={() => void connect(environment.id)}
+                          type="button"
+                        >
+                          Connect
+                        </Button>
+                        <Button
+                          disabled={busy}
+                          onClick={() => {
+                            setBusy(true);
+                            void environmentCloud
+                              .revoke(environment.id)
+                              .then(() => {
+                                connection.current?.stop();
+                                connectionOnline.current = false;
+                                setExecutionOnline(false);
+                                setConnectedScope(null);
+                                setOperations([]);
+                                trackedOperationIds.current = new Set();
+                                fetchedSequence.current = new Map();
+                                return refresh();
+                              })
+                              .catch((error: unknown) =>
+                                setMessage(
+                                  error instanceof Error ? error.message : "Revocation failed.",
+                                ),
+                              )
+                              .finally(() => setBusy(false));
+                          }}
+                          type="button"
+                          variant="destructive"
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </CardContent>
+                  ) : null}
+                </Card>
+              );
+            })
+          )}
+        </div>
+
+        {connectedScope === null ? null : (
+          <ExecutionConsole
+            binding={connectedScope.binding}
+            environmentName={connectedScope.environment.displayName}
+            online={executionOnline}
+            onCancel={cancelOperation}
+            onRun={runOperation}
+            operations={operations}
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 };

@@ -1,4 +1,4 @@
-export type WebProductDestination = "/auth" | "/organizations" | "/workspace";
+export type WebProductDestination = "/auth" | "/workspace";
 
 export const resolveWebProductDestination = ({
   authenticated,
@@ -13,10 +13,8 @@ export const resolveWebProductDestination = ({
 }>): WebProductDestination | null => {
   if (status === "checking-session") return null;
   if (!authenticated) return pathname === "/auth" ? null : "/auth";
-  if (!organizationSelected || status === "organization-selection") {
-    return pathname === "/organizations" ? null : "/organizations";
-  }
-  return pathname === "/" || pathname === "/auth" || pathname === "/organizations"
-    ? "/workspace"
-    : null;
+  if (pathname === "/organizations") return "/workspace";
+  if (!organizationSelected || status === "organization-selection")
+    return pathname === "/workspace" ? null : "/workspace";
+  return pathname === "/" || pathname === "/auth" ? "/workspace" : null;
 };

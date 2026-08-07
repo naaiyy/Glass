@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCSSVariable } from "uniwind";
 import {
   defaultMobileExecutionDraft,
   mobileExecutionOperations,
@@ -15,16 +16,21 @@ const Button = ({
   disabled?: boolean;
   label: string;
   onPress: () => void;
-}) => (
-  <Pressable
-    accessibilityRole="button"
-    disabled={disabled}
-    onPress={onPress}
-    style={[styles.button, disabled && styles.disabled]}
-  >
-    <Text style={styles.buttonText}>{label}</Text>
-  </Pressable>
-);
+}) => {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      className="border-border bg-secondary"
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.button, disabled && styles.disabled]}
+    >
+      <Text className="text-secondary-foreground" style={styles.buttonText}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+};
 
 const Input = ({
   label,
@@ -36,20 +42,29 @@ const Input = ({
   multiline?: boolean;
   onChangeText: (value: string) => void;
   value: string;
-}) => (
-  <View style={styles.field}>
-    <Text style={styles.label}>{label}</Text>
-    <TextInput
-      autoCapitalize="none"
-      autoCorrect={false}
-      multiline={multiline}
-      onChangeText={onChangeText}
-      placeholderTextColor="#71717a"
-      style={[styles.input, multiline && styles.multiline]}
-      value={value}
-    />
-  </View>
-);
+}) => {
+  const resolvedPlaceholder = useCSSVariable("--color-muted-foreground");
+  const placeholderTextColor =
+    typeof resolvedPlaceholder === "string" ? resolvedPlaceholder : undefined;
+
+  return (
+    <View style={styles.field}>
+      <Text className="text-foreground" style={styles.label}>
+        {label}
+      </Text>
+      <TextInput
+        autoCapitalize="none"
+        autoCorrect={false}
+        className="border-input bg-background text-foreground"
+        multiline={multiline}
+        onChangeText={onChangeText}
+        placeholderTextColor={placeholderTextColor}
+        style={[styles.input, multiline && styles.multiline]}
+        value={value}
+      />
+    </View>
+  );
+};
 
 export const MobileExecutionConsole = ({
   active,
@@ -71,9 +86,11 @@ export const MobileExecutionConsole = ({
   const terminalOperation = operation.startsWith("terminal.");
 
   return (
-    <View style={styles.console}>
-      <Text style={styles.heading}>Native execution console</Text>
-      <Text style={styles.help}>
+    <View className="border-border" style={styles.console}>
+      <Text className="text-foreground" style={styles.heading}>
+        Native execution console
+      </Text>
+      <Text className="text-muted-foreground" style={styles.help}>
         Machine actions require this environment to be online. Cloud projects and artifacts remain
         available independently.
       </Text>
@@ -179,7 +196,9 @@ export const MobileExecutionConsole = ({
       ) : null}
       {operation === "git.run" ? (
         <>
-          <Text style={styles.label}>Allowed Git subcommand</Text>
+          <Text className="text-foreground" style={styles.label}>
+            Allowed Git subcommand
+          </Text>
           <View style={styles.operationGrid}>
             {(["add", "branch", "checkout", "commit", "restore", "switch"] as const).map(
               (subcommand) => (
@@ -227,30 +246,25 @@ export const MobileExecutionConsole = ({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#27272a",
-    borderColor: "#52525b",
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
-  buttonText: { color: "#fafafa", fontSize: 12, fontWeight: "600" },
-  console: { borderColor: "#3f3f46", borderRadius: 14, borderWidth: 1, gap: 10, padding: 12 },
+  buttonText: { fontSize: 12, fontWeight: "600" },
+  console: { borderRadius: 14, borderWidth: 1, gap: 10, padding: 12 },
   disabled: { opacity: 0.45 },
   field: { flex: 1, gap: 5 },
-  heading: { color: "#fafafa", fontSize: 16, fontWeight: "700" },
-  help: { color: "#a1a1aa", fontSize: 12, lineHeight: 18 },
+  heading: { fontSize: 16, fontWeight: "700" },
+  help: { fontSize: 12, lineHeight: 18 },
   input: {
-    backgroundColor: "#18181b",
-    borderColor: "#52525b",
     borderRadius: 9,
     borderWidth: 1,
-    color: "#fafafa",
     minWidth: 96,
     paddingHorizontal: 10,
     paddingVertical: 9,
   },
-  label: { color: "#d4d4d8", fontSize: 12, fontWeight: "600" },
+  label: { fontSize: 12, fontWeight: "600" },
   multiline: { minHeight: 86, textAlignVertical: "top" },
   operationGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   row: { flexDirection: "row", gap: 8 },

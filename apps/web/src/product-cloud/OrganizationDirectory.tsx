@@ -1,29 +1,15 @@
 import type { OrganizationId, UserId } from "@glass/contracts/ids";
 import type { OrganizationMembershipItem } from "@glass/contracts/organizations";
-import { Building06Icon, Refresh01Icon } from "@hugeicons/core-free-icons";
+import { Refresh01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "~/components/ui/empty";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "~/components/ui/native-select";
 import { Spinner } from "~/components/ui/spinner";
 import { createProductCloudTransport } from "./transport.ts";
 
@@ -110,17 +96,18 @@ export const OrganizationDirectory = ({
     setError(null);
     try {
       await onBootstrap(trimmed);
+      setName("");
     } catch (cause) {
       setError(errorMessage(cause));
+    } finally {
       setCreating(false);
     }
   };
 
   return (
-    <Card className="mx-auto mt-12 w-full max-w-3xl" aria-label="Your organizations">
+    <Card className="mt-8" aria-label="Organizations">
       <CardHeader>
-        <CardTitle className="text-lg">Your organizations</CardTitle>
-        <CardDescription>Choose where you want to work in Glass Cloud.</CardDescription>
+        <CardTitle>Organizations</CardTitle>
         <CardAction>
           <Button disabled={loading} onClick={() => void load(null)} size="sm" variant="outline">
             {loading ? (
@@ -138,30 +125,24 @@ export const OrganizationDirectory = ({
             <Spinner /> Loading organizations…
           </div>
         ) : null}
-        <div className="grid gap-2 sm:grid-cols-2">
+        <Label htmlFor="active-organization">Organization</Label>
+        <NativeSelect
+          disabled={!loaded || items.length === 0}
+          id="active-organization"
+          onChange={(event) => onSelect(event.target.value as OrganizationId)}
+          value={activeOrganizationId ?? ""}
+        >
+          <NativeSelectOption disabled value="">
+            Choose an organization
+          </NativeSelectOption>
           {items.map((item) => (
-            <Button
-              className="h-auto min-h-14 justify-between px-3 py-2 text-left"
-              key={item.organization.id}
-              onClick={() => onSelect(item.organization.id)}
-              type="button"
-              variant={item.organization.id === activeOrganizationId ? "secondary" : "outline"}
-            >
-              <span className="min-w-0 truncate">{item.organization.name}</span>
-              <Badge variant="outline">{item.membership.role}</Badge>
-            </Button>
+            <NativeSelectOption key={item.organization.id} value={item.organization.id}>
+              {item.organization.name} · {item.membership.role}
+            </NativeSelectOption>
           ))}
-        </div>
+        </NativeSelect>
         {loaded && items.length === 0 ? (
-          <Empty className="border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <HugeiconsIcon icon={Building06Icon} />
-              </EmptyMedia>
-              <EmptyTitle>No organizations yet</EmptyTitle>
-              <EmptyDescription>Create one below to start working in Glass.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <p className="py-3 text-sm text-muted-foreground">No organizations yet.</p>
         ) : null}
         {nextCursor === null ? null : (
           <Button

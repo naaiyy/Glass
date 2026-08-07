@@ -14,7 +14,7 @@ describe("web route authority", () => {
     ).toBe("/auth");
   });
 
-  it("requires selection instead of accepting an organization route parameter", () => {
+  it("keeps organization selection on the workspace", () => {
     expect(
       resolveWebProductDestination({
         authenticated: true,
@@ -22,7 +22,7 @@ describe("web route authority", () => {
         pathname: "/workspace",
         status: "organization-selection",
       }),
-    ).toBe("/organizations");
+    ).toBeNull();
   });
 
   it("preserves authenticated nested resource routes", () => {
@@ -34,5 +34,16 @@ describe("web route authority", () => {
         status: "live",
       }),
     ).toBeNull();
+  });
+
+  it("redirects the old organization route to the workspace", () => {
+    expect(
+      resolveWebProductDestination({
+        authenticated: true,
+        organizationSelected: true,
+        pathname: "/organizations",
+        status: "live",
+      }),
+    ).toBe("/workspace");
   });
 });

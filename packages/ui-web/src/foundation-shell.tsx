@@ -5,5 +5,7 @@ export type FoundationShellProps = Readonly<{
 }>;
 
 export const FoundationShell = ({ children }: FoundationShellProps) => (
-  <main className="mx-auto min-h-dvh w-full max-w-6xl px-4 pb-16 sm:px-6">{children}</main>
+  <main className="foundation-shell mx-auto min-h-dvh w-full max-w-6xl px-4 pb-16 sm:px-6">
+    {children}
+  </main>
 );
